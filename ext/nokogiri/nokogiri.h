@@ -135,19 +135,19 @@ extern VALUE mNokogiriXslt ;
 
 #endif
 
-#ifndef RSTRING_PTR
+#if !defined(RSTRING_PTR) && defined(RSTRING)
 #define RSTRING_PTR(s) (RSTRING(s)->ptr)
 #endif
 
-#ifndef RSTRING_LEN
+#if !defined(RSTRING_LEN) && defined(RSTRING)
 #define RSTRING_LEN(s) (RSTRING(s)->len)
 #endif
 
-#ifndef RARRAY_PTR
+#if !defined(RARRAY_PTR) && defined(RARRAY)
 #define RARRAY_PTR(a) RARRAY(a)->ptr
 #endif
 
-#ifndef RARRAY_LEN
+#if !defined(RARRAY_LEN) && defined(RARRAY)
 #define RARRAY_LEN(a) RARRAY(a)->len
 #endif
 

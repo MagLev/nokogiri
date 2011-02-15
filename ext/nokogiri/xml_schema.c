@@ -185,7 +185,7 @@ static VALUE from_document(VALUE klass, VALUE document)
 
   return rb_schema;
 
-  return Qnil;
+  // return Qnil;  // supress warning, statement not reached
 }
 
 VALUE cNokogiriXmlSchema;

@@ -319,7 +319,7 @@ module Nokogiri
         assert_equal @xml.to_s, xml.to_s
       end
 
-      def test_encoding=
+      def test_z_encoding=
         @xml.encoding = 'UTF-8'
         assert_match 'UTF-8', @xml.to_xml
 
@@ -412,7 +412,7 @@ module Nokogiri
 
       # wtf...  osx's libxml sucks.
       unless !Nokogiri.uses_libxml? || Nokogiri::LIBXML_VERSION =~ /^2\.6\./
-        def test_encoding
+        def test_z_encoding
           xml = Nokogiri::XML(File.read(XML_FILE), XML_FILE, 'UTF-8')
           assert_equal 'UTF-8', xml.encoding
         end

@@ -212,7 +212,8 @@ static void * initFunc(xsltTransformContextPtr ctxt, const xmlChar *uri)
     int i;
 
     for(i = 0; i < RARRAY_LEN(methods); i++) {
-	VALUE method_name = rb_obj_as_string(RARRAY_PTR(methods)[i]);
+        VALUE elem = rb_ary_entry(methods, i);  // maglev, replaces RARRAY_PTR
+	VALUE method_name = rb_obj_as_string(elem);
 	xsltRegisterExtFunction(ctxt,
           (unsigned char *)StringValuePtr(method_name), uri, method_caller);
     }

@@ -53,7 +53,7 @@ static void ruby_funcall(xmlXPathParserContextPtr ctx, int nargs)
 {
   VALUE xpath_handler = Qnil;
   VALUE result;
-  VALUE *argv;
+  // VALUE *argv;
   VALUE doc;
   VALUE node_set = Qnil;
   xmlNodeSetPtr xml_node_set = NULL;
@@ -68,10 +68,11 @@ static void ruby_funcall(xmlXPathParserContextPtr ctx, int nargs)
 
   xpath_handler = (VALUE)(ctx->context->userData);
 
-  argv = (VALUE *)calloc((size_t)nargs, sizeof(VALUE));
-  for (i = 0 ; i < nargs ; ++i) {
-    rb_gc_register_address(&argv[i]);
-  }
+  //argv = (VALUE *)calloc((size_t)nargs, sizeof(VALUE));
+  //for (i = 0 ; i < nargs ; ++i) {
+  //  rb_gc_register_address(&argv[i]);
+  //}
+  VALUE argv = rb_ary_new2(nargs);
 
   doc = DOC_RUBY_OBJECT(ctx->context->doc);
 
@@ -80,46 +81,51 @@ static void ruby_funcall(xmlXPathParserContextPtr ctx, int nargs)
     obj = valuePop(ctx);
     switch(obj->type) {
       case XPATH_STRING:
-        argv[i] = NOKOGIRI_STR_NEW2(obj->stringval);
+        rb_ary_store( argv, i, NOKOGIRI_STR_NEW2(obj->stringval));
         break;
       case XPATH_BOOLEAN:
-        argv[i] = obj->boolval == 1 ? Qtrue : Qfalse;
+        rb_ary_store( argv, i,  obj->boolval == 1 ? Qtrue : Qfalse);
         break;
       case XPATH_NUMBER:
-        argv[i] = rb_float_new(obj->floatval);
+        rb_ary_store( argv, i,  rb_float_new(obj->floatval) );
         break;
       case XPATH_NODESET:
-        argv[i] = Nokogiri_wrap_xml_node_set(obj->nodesetval, doc);
+        rb_ary_store( argv, i,  Nokogiri_wrap_xml_node_set(obj->nodesetval, doc));
         break;
       default:
-        argv[i] = NOKOGIRI_STR_NEW2(xmlXPathCastToString(obj));
+        rb_ary_store( argv, i,  NOKOGIRI_STR_NEW2(xmlXPathCastToString(obj)) );
     }
     xmlXPathFreeNodeSetList(obj);
   } while(i-- > 0);
 
-  result = rb_funcall2(
+  result = rb_funcall2_(
       xpath_handler,
       rb_intern((const char *)ctx->context->function),
-      nargs,
-      argv
+      nargs, argv
   );
 
-  for (i = 0 ; i < nargs ; ++i) {
-    rb_gc_unregister_address(&argv[i]);
-  }
-  free(argv);
+  // for (i = 0 ; i < nargs ; ++i) {
+  //  rb_gc_unregister_address(&argv[i]);
+  //}
+  //free(argv);
 
-  switch(TYPE(result)) {
+  MagRubyType tp = TYPE(result) ;   // maglev debugging
+  switch(tp) {
     case T_FLOAT:
     case T_BIGNUM:
     case T_FIXNUM:
       xmlXPathReturnNumber(ctx, NUM2DBL(result));
       break;
-    case T_STRING:
+    case T_STRING: {
+      const char* res_cstr = StringValuePtr(result);
+      // per Ubuntu sources for libxml2-2.7.6.dfsg , 
+      //  xmlXPathWrapCString does treat the arg as  const char* 
+      char *res_str = (char*)res_cstr;
       xmlXPathReturnString(
           ctx,
-          (xmlChar *)xmlXPathWrapCString(StringValuePtr(result))
+          (xmlChar *)xmlXPathWrapCString( res_str )
       );
+      }
       break;
     case T_TRUE:
       xmlXPathReturnTrue(ctx);
@@ -140,7 +146,7 @@ static void ruby_funcall(xmlXPathParserContextPtr ctx, int nargs)
       }
       break;
     case T_DATA:
-      if(rb_obj_is_kind_of(result, cNokogiriXmlNodeSet)) {
+      if( rb_obj_is_kind_of_(result, cNokogiriXmlNodeSet)) {
         Data_Get_Struct(result, xmlNodeSet, xml_node_set);
         /* Copy the node set, otherwise it will get GC'd. */
         xmlXPathReturnNodeSet(ctx, xmlXPathNodeSetMerge(NULL, xml_node_set));

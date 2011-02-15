@@ -1,3 +1,4 @@
+lpx = $LOAD_PATH
 require "helper"
 
 class TestNokogiri < Nokogiri::TestCase

@@ -1,4 +1,5 @@
 #include <xml_relax_ng.h>
+#include "libxml2/libxml/relaxng.h"
 
 static void dealloc(xmlRelaxNGPtr schema)
 {

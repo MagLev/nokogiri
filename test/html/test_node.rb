@@ -1,6 +1,6 @@
 require "helper"
 
-require 'nkf'
+# require 'nkf'  # skip Network Kanji Filter for now
 
 module Nokogiri
   module HTML
@@ -106,14 +106,16 @@ module Nokogiri
         end
       end
 
-      def test_swap
+      def test_z_swap
+# SEGV in  spacePop from xmlParseElement
         @html.at('div').swap('<a href="foo">bar</a>')
         a_tag = @html.css('a').first
         assert_equal 'body', a_tag.parent.name
         assert_equal 0, @html.css('div').length
       end
 
-      def test_swap_with_regex_characters
+      def test_z_swap_with_regex_characters
+# SEGV in  spacePop from xmlParseElement
         @html.at('div').swap('<a href="foo">ba)r</a>')
         a_tag = @html.css('a').first
         assert_equal 'ba)r', a_tag.text
@@ -136,12 +138,13 @@ module Nokogiri
         assert_equal Nokogiri::XML::ParseOptions::DEFAULT_HTML, options.to_i
       end
 
-      def test_fragment_handler_does_not_regurge_on_invalid_attributes
+      def test_z_fragment_handler_does_not_regurge_on_invalid_attributes
+# SEGV in  spacePop from xmlParseElement
         iframe = %Q{<iframe style="width: 0%; height: 0px" src="http://someurl" allowtransparency></iframe>}
         assert_nothing_raised { @html.at('div').fragment(iframe) }
       end
 
-      def test_fragment
+      def test_z_fragment   # SEGV in  spacePop from xmlParseElement
         fragment = @html.fragment(<<-eohtml)
           hello
           <div class="foo">

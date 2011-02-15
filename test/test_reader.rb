@@ -146,7 +146,7 @@ class TestReader < Nokogiri::TestCase
       reader.map { |x| x.attributes? }
   end
 
-  def test_attributes
+  def test_z_attributes   # non-NULL dmark needed
     reader = Nokogiri::XML::Reader.from_memory(<<-eoxml)
     <x xmlns:tenderlove='http://tenderlovemaking.com/'
        xmlns='http://mothership.connection.com/'
@@ -163,7 +163,7 @@ class TestReader < Nokogiri::TestCase
       reader.map { |x| x.attributes }
   end
 
-  def test_attribute_roundtrip
+  def test_z_attribute_roundtrip  # non-NULL dmark needed
     reader = Nokogiri::XML::Reader.from_memory(<<-eoxml)
     <x xmlns:tenderlove='http://tenderlovemaking.com/'
        xmlns='http://mothership.connection.com/'
@@ -387,7 +387,7 @@ class TestReader < Nokogiri::TestCase
     assert called
   end
 
-  def test_large_document_smoke_test
+  def test_z_large_document_smoke_test  # non-null dmark needed
     #  simply run on a large document to verify that there no GC issues
     xml = []
     xml << "<elements>"

@@ -130,7 +130,7 @@ encoding="iso-8859-1" indent="yes"/>
     end
 
     if Nokogiri.uses_libxml? # By now, cannot get it working on JRuby.
-      def test_exslt
+      def test_z_exslt
         assert doc = Nokogiri::XML.parse(File.read(EXML_FILE))
         assert doc.xml?
 
@@ -148,7 +148,7 @@ encoding="iso-8859-1" indent="yes"/>
         assert_equal 3, result_doc.at('/root/max').content.to_i
         assert_match(
           /\d{4}-\d\d-\d\d([-|+]\d\d:\d\d)?/,
-          result_doc.at('/root/date').content
+          result_doc.at('/root/date').content   # content is empty String
           )
         result_doc.xpath('/root/params/*').each do  |p|
           assert_equal p.content, params[p.name.intern]

@@ -287,7 +287,8 @@ module Nokogiri
 
         @arity = block.arity
         if @arity <= 0
-          @context = eval('self', block.binding)
+          # @context = eval('self', block.binding)
+          @context = block.__get_self #  maglev workaround
           instance_eval(&block)
         else
           yield self

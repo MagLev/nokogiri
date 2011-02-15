@@ -92,7 +92,7 @@ module Nokogiri
       end
 
       # descriptive, not prescriptive.
-      def test_parse_invalid_html_markup_results_in_empty_nodeset
+      def test_z_parse_invalid_html_markup_results_in_empty_nodeset  # SEGV in spacePop
         doc = Nokogiri::HTML("<html></html>")
         nodeset = doc.root.parse "<div><div>a</div><snippet>b</snippet></div>"
         assert_equal 1, doc.errors.length # "Tag snippet invalid"
@@ -106,7 +106,7 @@ module Nokogiri
           options.recover
         end
         assert_equal "<div></div>", nodeset.to_s
-        assert_equal 1, doc.errors.length
+        assert_equal 1, doc.errors.length 
         assert_equal 1, nodeset.length
       end
 
@@ -116,7 +116,7 @@ module Nokogiri
         nodeset = context_node.parse("<div </div>") do |options|
           options.strict
         end
-        assert_equal 1, doc.errors.length
+        assert_equal 1, doc.errors.length 
         assert_equal 0, nodeset.length
       end
 

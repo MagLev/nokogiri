@@ -16,8 +16,10 @@ static void mark(xmlNodePtr node)
 {
   /* it's OK if the document isn't fully realized (as in XML::Reader). */
   /* see http://github.com/tenderlove/nokogiri/issues/closed/#issue/95 */
-  if (DOC_RUBY_OBJECT_TEST(node->doc) && DOC_RUBY_OBJECT(node->doc))
-    rb_gc_mark(DOC_RUBY_OBJECT(node->doc));
+
+// do not checkin
+//  if (DOC_RUBY_OBJECT_TEST(node->doc) && DOC_RUBY_OBJECT(node->doc))
+//    rb_gc_mark(DOC_RUBY_OBJECT(node->doc));
 }
 
 /* :nodoc: */
@@ -105,9 +107,9 @@ static VALUE reparent_node_with(VALUE pivot_obj, VALUE reparentee_obj, pivot_rep
   VALUE reparented_obj ;
   xmlNodePtr reparentee, pivot, reparented, next_text, new_next_text ;
 
-  if(!rb_obj_is_kind_of(reparentee_obj, cNokogiriXmlNode))
+  if(! rb_obj_is_kind_of_(reparentee_obj, cNokogiriXmlNode))
     rb_raise(rb_eArgError, "node must be a Nokogiri::XML::Node");
-  if(rb_obj_is_kind_of(reparentee_obj, cNokogiriXmlDocument))
+  if( rb_obj_is_kind_of_(reparentee_obj, cNokogiriXmlDocument))
     rb_raise(rb_eArgError, "node must be a Nokogiri::XML::Node");
 
   Data_Get_Struct(reparentee_obj, xmlNode, reparentee);
@@ -178,7 +180,7 @@ static VALUE reparent_node_with(VALUE pivot_obj, VALUE reparentee_obj, pivot_rep
    *  might be a duplicate (see above) or might be the result of merging
    *  adjacent text nodes.
    */
-  DATA_PTR(reparentee_obj) = reparented ;
+  rb_rdata_store(reparentee_obj, reparented); // DATA_PTR(reparentee_obj) = reparented ;
 
   relink_namespace(reparented);
 
@@ -1113,7 +1115,7 @@ static VALUE new(int argc, VALUE *argv, VALUE klass)
   NOKOGIRI_ROOT_NODE(node);
 
   rb_node = Nokogiri_wrap_xml_node(
-      klass == cNokogiriXmlNode ? (VALUE)NULL : klass,
+      klass == cNokogiriXmlNode ? Qnil : klass,
       node
   );
   rb_obj_call_init(rb_node, argc, argv);
@@ -1229,6 +1231,8 @@ static VALUE in_context(VALUE self, VALUE _str, VALUE _options)
   return Nokogiri_wrap_xml_node_set(set, doc);
 }
 
+static VALUE sym_iv_doc = Qnil;
+
 
 VALUE Nokogiri_wrap_xml_node(VALUE klass, xmlNodePtr node)
 {
@@ -1241,13 +1245,13 @@ VALUE Nokogiri_wrap_xml_node(VALUE klass, xmlNodePtr node)
   if(node->type == XML_DOCUMENT_NODE || node->type == XML_HTML_DOCUMENT_NODE)
       return DOC_RUBY_OBJECT(node->doc);
 
-  if(NULL != node->_private) return (VALUE)node->_private;
+  if (NULL != node->_private) {
+    return (VALUE)node->_private;  // already wrapped by a Ruby object
+  }
 
-  if(RTEST(klass))
-    rb_node = Data_Wrap_Struct(klass, mark, debug_node_dealloc, node) ;
-
-  else switch(node->type)
-  {
+  // maglev edits to fix garbage creation
+  if (! RTEST(klass)) {
+   switch(node->type) {
     case XML_ELEMENT_NODE:
       klass = cNokogiriXmlElement;
       break;
@@ -1286,9 +1290,18 @@ VALUE Nokogiri_wrap_xml_node(VALUE klass, xmlNodePtr node)
       break;
     default:
       klass = cNokogiriXmlNode;
+   }
   }
-
-  rb_node = Data_Wrap_Struct(klass, mark, debug_node_dealloc, node) ;
+  if (DOC_RUBY_OBJECT_TEST(node->doc)) {  // maglev workaround , no gc mark
+    VALUE ref = DOC_RUBY_OBJECT(node->doc);
+    if (ref != 0 && ref != Qnil && sym_iv_doc != Qnil) {
+      rb_node = Data_Wrap_Struct(klass, NULL, debug_node_dealloc, node) ;
+      rb_ivar_set(rb_node, sym_iv_doc, ref);
+    }
+  }
+  if (rb_node == Qnil ) { // maglev will fail, rb_gc_mark not supported
+    rb_node = Data_Wrap_Struct(klass, mark, debug_node_dealloc, node) ;
+  } 
 
   node->_private = (void *)rb_node;
 
@@ -1327,6 +1340,7 @@ void init_xml_node()
   cNokogiriXmlNode = klass;
 
   cNokogiriXmlElement = rb_define_class_under(xml, "Element", klass);
+  sym_iv_doc = rb_intern("@doc");
 
   rb_define_singleton_method(klass, "new", new, -1);
 

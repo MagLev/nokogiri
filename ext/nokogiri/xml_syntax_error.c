@@ -3,19 +3,19 @@
 void Nokogiri_error_array_pusher(void * ctx, xmlErrorPtr error)
 {
   VALUE list = (VALUE)ctx;
-  rb_ary_push(list,  Nokogiri_wrap_xml_syntax_error((VALUE)NULL, error));
+  rb_ary_push(list,  Nokogiri_wrap_xml_syntax_error( Qnil , error));
 }
 
 void Nokogiri_error_raise(void * ctx, xmlErrorPtr error)
 {
-  rb_exc_raise(Nokogiri_wrap_xml_syntax_error((VALUE)NULL, error));
+  rb_exc_raise(Nokogiri_wrap_xml_syntax_error( Qnil , error));
 }
 
 VALUE Nokogiri_wrap_xml_syntax_error(VALUE klass, xmlErrorPtr error)
 {
   VALUE msg, e;
 
-  if(!klass) klass = cNokogiriXmlSyntaxError;
+  if( klass == Qnil ) klass = cNokogiriXmlSyntaxError;
 
   msg = (error && error->message) ? NOKOGIRI_STR_NEW2(error->message) : Qnil;
 
