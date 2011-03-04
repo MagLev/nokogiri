@@ -6,6 +6,7 @@ require 'hoe'
 
 windows = RUBY_PLATFORM =~ /(mswin|mingw)/i
 java    = RUBY_PLATFORM =~ /java/
+maglev  = defined? Maglev
 
 GENERATED_PARSER    = "lib/nokogiri/css/parser.rb"
 GENERATED_TOKENIZER = "lib/nokogiri/css/tokenizer.rb"
@@ -141,8 +142,8 @@ unless windows
     Rake::Task[task_name].prerequisites << GENERATED_TOKENIZER
   end
 
-  Rake::Task[:test].prerequisites << :compile
-  Rake::Task[:test].prerequisites << :check_extra_deps unless java
+  Rake::Task[:test].prerequisites << :compile unless maglev
+  Rake::Task[:test].prerequisites << :check_extra_deps unless java || maglev
   if Hoe.plugins.include?(:debugging)
     ['valgrind', 'valgrind:mem', 'valgrind:mem0'].each do |task_name|
       Rake::Task["test:#{task_name}"].prerequisites << :compile
