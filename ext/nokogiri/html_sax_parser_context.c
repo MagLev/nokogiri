@@ -54,7 +54,7 @@ static VALUE parse_with(VALUE self, VALUE sax_handler)
   htmlParserCtxtPtr ctxt;
   htmlSAXHandlerPtr sax;
 
-  if(!rb_obj_is_kind_of(sax_handler, cNokogiriXmlSaxParser))
+  if(!rb_obj_is_kind_of_(sax_handler, cNokogiriXmlSaxParser))
     rb_raise(rb_eArgError, "argument must be a Nokogiri::XML::SAX::Parser");
 
   Data_Get_Struct(self, htmlParserCtxt, ctxt);
