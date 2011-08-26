@@ -89,7 +89,20 @@ module Nokogiri
         File.open(file, 'rb')
       end
 
-      def test_z_document_xhtml_enc
+      def test_document_html_noencoding
+        from_stream = Nokogiri::HTML(binopen(NOENCODING_FILE))
+        from_string = Nokogiri::HTML(binread(NOENCODING_FILE))
+
+        assert_equal from_string.to_s.size, from_stream.to_s.size
+      end
+
+      def test_document_html_charset
+        html = Nokogiri::HTML(binopen(METACHARSET_FILE))
+        assert_equal 'iso-2022-jp', html.encoding
+        assert_equal 'たこ焼き仮面', html.title
+      end
+
+      def test_document_xhtml_enc
         [ENCODING_XHTML_FILE, ENCODING_HTML_FILE].each { |file|
           doc_from_string_enc = Nokogiri::HTML(binread(file), nil, 'Shift_JIS')
           ary_from_string_enc = doc_from_string_enc.xpath('//p/text()').map { |text| text.text }
