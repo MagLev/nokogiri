@@ -17,6 +17,10 @@ def java?
   !! (RUBY_PLATFORM =~ /java/)
 end
 
+def maglev?
+  !! defined?(Maglev)
+end
+
 require 'tasks/nokogiri.org'
 
 HOE = Hoe.spec 'maglev-nokogiri' do
@@ -82,7 +86,7 @@ if java?
     cp 'lib/nokogiri/nokogiri.jar', File.join(gem_build_path, 'lib', 'nokogiri')
     HOE.spec.files += ['lib/nokogiri/nokogiri.jar']
   end
-else
+elsif ! maglev?
   require 'tasks/cross_compile'
   require "rake/extensiontask"
 
@@ -120,7 +124,7 @@ end
 [:compile, :check_manifest].each do |task_name|
   Rake::Task[task_name].prerequisites << GENERATED_PARSER
   Rake::Task[task_name].prerequisites << GENERATED_TOKENIZER
-end
+end unless maglev?
 
 # ----------------------------------------
 
@@ -133,20 +137,13 @@ end
 
 require 'tasks/test'
 
-Rake::Task[:test].prerequisites << :compile
-Rake::Task[:test].prerequisites << :check_extra_deps unless java?
+Rake::Task[:test].prerequisites << :compile unless maglev?
+Rake::Task[:test].prerequisites << :check_extra_deps unless (java? or maglev?)
 if Hoe.plugins.include?(:debugging)
   ['valgrind', 'valgrind:mem', 'valgrind:mem0'].each do |task_name|
     Rake::Task["test:#{task_name}"].prerequisites << :compile
   end
 end
-
-
-  # Rake::Task[:test].prerequisites << :compile unless maglev
-  # Rake::Task[:test].prerequisites << :check_extra_deps unless java || maglev
-  # if Hoe.plugins.include?(:debugging)
-  #   ['valgrind', 'valgrind:mem', 'valgrind:mem0'].each do |task_name|
-  #     Rake::Task["test:#{task_name}"].prerequisites << :compile
 
 # ----------------------------------------
 
