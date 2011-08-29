@@ -13,20 +13,17 @@ work under MagLev, so the gem must be built using MRI.  To build the
 Nokogiri gem:
 
   $ git clone git://github.com/MagLev/nokogiri.git
-  $ cd nokogiri
+  $ cd maglev-nokogiri
 
 Make sure you use MRI ruby for the following:
 
   $ gem install hoe rake-compiler racc rexical minitest
-  $ rake
 
-At this point, you should have a gem packaged in
-pkg/nokogiri-1.5.0.beta.4.gem.  Install that gem using MagLev:
+Build the gemspec and gem
 
-  $ maglev-gem install pkg/nokogiri-1.5.0.beta.4.gem
-  Building native extensions.  This could take a while...
-  Successfully installed nokogiri-1.5.0.beta.4
-  1 gem installed
+  $ rake gem:spec
+  $ gem build maglev-nokogiri.gemspec
+  $ maglev-gem install maglev-nokogiri-1.5.0.<some_timestamp_or_other>.gem
 
 ==== Run Nokogiri Tests
 
