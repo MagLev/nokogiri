@@ -199,13 +199,34 @@ module Nokogiri
         assert_equal 'hello', builder.doc.at('/root').content
       end
 
+      def test_raw_xml_append
+        builder = Nokogiri::XML::Builder.new do |xml|
+          xml.root do
+            xml << '<aaa><bbb/><ccc/></aaa>'
+          end
+        end
+
+        assert_equal ["aaa"],       builder.doc.at_css("root").children.collect(&:name)
+        assert_equal ["bbb","ccc"], builder.doc.at_css("aaa").children.collect(&:name)
+      end
+
       def test_cdata
         builder = Nokogiri::XML::Builder.new do
           root {
             cdata "hello world"
           }
         end
-        assert_equal("<?xml version=\"1.0\"?><root><![CDATA[hello world]]></root>", builder.to_xml.gsub(/\n/, ''))
+        assert_equal("<?xml version=\"1.0\"?><root><![CDATA[hello world]]></root>",
+          builder.to_xml.gsub(/\n/, ""))
+      end
+
+      def test_comment
+        builder = Nokogiri::XML::Builder.new do
+          root {
+            comment "this is a comment"
+          }
+        end
+        assert builder.doc.root.children.first.comment?
       end
 
       def test_builder_no_block
@@ -214,7 +235,8 @@ module Nokogiri
         builder.root {
           cdata string
         }
-        assert_equal("<?xml version=\"1.0\"?><root><![CDATA[hello world]]></root>", builder.to_xml.gsub(/\n/, ''))
+        assert_equal("<?xml version=\"1.0\"?><root><![CDATA[hello world]]></root>",
+          builder.to_xml.gsub(/\n/, ''))
       end
 
     private

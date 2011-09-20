@@ -658,8 +658,27 @@ static VALUE namespaced_key_eh(VALUE self, VALUE attribute, VALUE namespace)
  */
 static VALUE set(VALUE self, VALUE property, VALUE value)
 {
-  xmlNodePtr node;
+  xmlNodePtr node, cur;
+  xmlAttrPtr prop;
   Data_Get_Struct(self, xmlNode, node);
+
+  /* If a matching attribute node already exists, then xmlSetProp will destroy
+   * the existing node's children. However, if Nokogiri has a node object
+   * pointing to one of those children, we are left with a broken reference.
+   *
+   * We can avoid this by unlinking these nodes first.
+   */
+  if (node->type != XML_ELEMENT_NODE)
+    return(Qnil);
+  prop = xmlHasProp(node, (xmlChar *)StringValuePtr(property));
+  if (prop && prop->children) {
+    for (cur = prop->children; cur; cur = cur->next) {
+      if (cur->_private) {
+        NOKOGIRI_ROOT_NODE(cur);
+        xmlUnlinkNode(cur);
+      }
+    }
+  }
 
   xmlSetProp(node, (xmlChar *)StringValuePtr(property),
       (xmlChar *)StringValuePtr(value));
@@ -1157,6 +1176,39 @@ static VALUE compare(VALUE self, VALUE _other)
 }
 
 
+/*
+ * call-seq:
+ *   process_xincludes(options)
+ *
+ * Loads and substitutes all xinclude elements below the node. The
+ * parser context will be initialized with +options+.
+ */
+static VALUE process_xincludes(VALUE self, VALUE options)
+{
+  int rcode ;
+  xmlNodePtr node;
+  VALUE error_list = rb_ary_new();
+
+  Data_Get_Struct(self, xmlNode, node);
+
+  xmlSetStructuredErrorFunc((void *)error_list, Nokogiri_error_array_pusher);
+  rcode = xmlXIncludeProcessTreeFlags(node, (int)NUM2INT(options));
+  xmlSetStructuredErrorFunc(NULL, NULL);
+
+  if (rcode < 0) {
+    xmlErrorPtr error;
+
+    error = xmlGetLastError();
+    if(error)
+      rb_exc_raise(Nokogiri_wrap_xml_syntax_error((VALUE)NULL, error));
+    else
+      rb_raise(rb_eRuntimeError, "Could not perform xinclude substitution");
+  }
+
+  return self;
+}
+
+
 /* TODO: DOCUMENT ME */
 static VALUE in_context(VALUE self, VALUE _str, VALUE _options)
 {
@@ -1380,6 +1432,7 @@ void init_xml_node()
   rb_define_method(klass, "pointer_id", pointer_id, 0);
   rb_define_method(klass, "line", line, 0);
 
+  rb_define_private_method(klass, "process_xincludes", process_xincludes, 1);
   rb_define_private_method(klass, "in_context", in_context, 2);
   rb_define_private_method(klass, "add_child_node", add_child, 1);
   rb_define_private_method(klass, "add_previous_sibling_node", add_previous_sibling, 1);

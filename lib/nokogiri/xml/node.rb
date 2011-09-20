@@ -452,9 +452,9 @@ module Nokogiri
       # If you need to distinguish attributes with the same name, with different namespaces
       # use #attribute_nodes instead.
       def attributes
-        Hash[*(attribute_nodes.map { |node|
+        Hash[attribute_nodes.map { |node|
           [node.node_name, node]
-        }.flatten)]
+        }]
       end
 
       ###
@@ -471,9 +471,9 @@ module Nokogiri
 
       ###
       # Iterate over each attribute name and value pair for this Node.
-      def each &block
+      def each
         attribute_nodes.each { |node|
-          block.call([node.node_name, node.value])
+          yield [node.node_name, node.value]
         }
       end
 
@@ -555,7 +555,7 @@ module Nokogiri
       # default namespaces set on ancestor will NOT be, even if self
       # has no explicit default namespace.
       def namespaces
-        Hash[*namespace_scopes.map { |nd|
+        Hash[namespace_scopes.map { |nd|
           key = ['xmlns', nd.prefix].compact.join(':')
           if RUBY_VERSION >= '1.9' && document.encoding
             begin
@@ -564,7 +564,7 @@ module Nokogiri
             end
           end
           [key, nd.href]
-        }.flatten]
+        }]
       end
 
       # Returns true if this is a Comment
@@ -863,6 +863,20 @@ module Nokogiri
         return nil unless other.is_a?(Nokogiri::XML::Node)
         return nil unless document == other.document
         compare other
+      end
+
+      ###
+      # Do xinclude substitution on the subtree below node. If given a block, a
+      # Nokogiri::XML::ParseOptions object initialized from +options+, will be
+      # passed to it, allowing more convenient modification of the parser options.
+      def do_xinclude options = XML::ParseOptions::DEFAULT_XML, &block
+        options = Nokogiri::XML::ParseOptions.new(options) if Fixnum === options
+
+        # give options to user
+        yield options if block_given?
+
+        # call c extension
+        process_xincludes(options.to_i)
       end
 
       private

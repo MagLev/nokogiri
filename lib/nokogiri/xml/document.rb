@@ -17,20 +17,23 @@ module Nokogiri
       # Nokogiri::XML::ParseOptions::RECOVER.  See the constants in
       # Nokogiri::XML::ParseOptions.
       def self.parse string_or_io, url = nil, encoding = nil, options = ParseOptions::DEFAULT_XML, &block
-
         options = Nokogiri::XML::ParseOptions.new(options) if Fixnum === options
         # Give the options to the user
         yield options if block_given?
 
-        if string_or_io.respond_to?(:read)
+        doc = if string_or_io.respond_to?(:read)
           url ||= string_or_io.respond_to?(:path) ? string_or_io.path : nil
-          return read_io(string_or_io, url, encoding, options.to_i)
+          read_io(string_or_io, url, encoding, options.to_i)
+        else
+          # read_memory pukes on empty docs
+          return new if string_or_io.nil? or string_or_io.empty?
+          read_memory(string_or_io, url, encoding, options.to_i)
         end
 
-        # read_memory pukes on empty docs
-        return new if string_or_io.nil? or string_or_io.empty?
+        # do xinclude processing
+        doc.do_xinclude(options) if options.xinclude?
 
-        read_memory(string_or_io, url, encoding, options.to_i)
+        return doc
       end
 
       # A list of Nokogiri::XML::SyntaxError found when parsing a document
@@ -71,14 +74,19 @@ module Nokogiri
         elm
       end
 
-      # Create a text node with +text+
-      def create_text_node text, &block
-        Nokogiri::XML::Text.new(text.to_s, self, &block)
+      # Create a Text Node with +string+
+      def create_text_node string, &block
+        Nokogiri::XML::Text.new string.to_s, self, &block
       end
 
-      # Create a CDATA element containing +text+
-      def create_cdata text
-        Nokogiri::XML::CDATA.new(self, text.to_s)
+      # Create a CDATA Node containing +string+
+      def create_cdata string, &block
+        Nokogiri::XML::CDATA.new self, string.to_s, &block
+      end
+
+      # Create a Comment Node containing +string+
+      def create_comment string, &block
+        Nokogiri::XML::Comment.new self, string.to_s, &block
       end
 
       # The name of this document.  Always returns "document"
