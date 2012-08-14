@@ -6,7 +6,8 @@ module Nokogiri
       # then nil is returned.
       def meta_encoding
         meta = meta_content_type and
-          /charset\s*=\s*([\w-]+)/i.match(meta['content'])[1]
+          match = /charset\s*=\s*([\w-]+)/i.match(meta['content']) and
+          match[1]
       end
 
       ###
@@ -19,7 +20,9 @@ module Nokogiri
 
       def meta_content_type
         css('meta[@http-equiv]').find { |node|
-          node['http-equiv'] =~ /\AContent-Type\z/i
+          node['http-equiv'] =~ /\AContent-Type\z/i and
+            !node['content'].nil? and
+            !node['content'].empty?
         }
       end
       private :meta_content_type
@@ -133,33 +136,36 @@ module Nokogiri
 
       class EncodingReader # :nodoc:
         class SAXHandler < Nokogiri::XML::SAX::Document # :nodoc:
+          attr_reader :encoding
+          
+          def initialize
+            @encoding = nil
+            super()
+          end
+    
+          def start_element(name, attrs = [])
+            return unless name == 'meta'
+            attr = Hash[attrs]
+            charset = attr['charset'] and
+              @encoding = charset
+            http_equiv = attr['http-equiv'] and
+              http_equiv.match(/\AContent-Type\z/i) and
+              content = attr['content'] and
+              m = content.match(/;\s*charset\s*=\s*([\w-]+)/) and
+              @encoding = m[1]
+          end
+        end
+        
+        class JumpSAXHandler < SAXHandler
           def initialize(jumptag)
             @jumptag = jumptag
             super()
           end
 
-          def found(encoding)
-            throw @jumptag, encoding
-          end
-
-          def not_found
-            found nil
-          end
-
           def start_element(name, attrs = [])
-            case name
-            when /\A(?:div|h1|img|p|br)\z/
-              not_found
-            when 'meta'
-              attr = Hash[attrs]
-              charset = attr['charset'] and
-                found charset
-              http_equiv = attr['http-equiv'] and
-                http_equiv.match(/\AContent-Type\z/i) and
-                content = attr['content'] and
-                m = content.match(/;\s*charset\s*=\s*([\w-]+)/) and
-                found m[1]
-            end
+            super
+            throw @jumptag, @encoding if @encoding
+            throw @jumptag, nil if name =~ /\A(?:div|h1|img|p|br)\z/
           end
         end
 
@@ -173,15 +179,16 @@ module Nokogiri
           if Nokogiri.jruby?
             m = chunk.match(/(<meta\s)(.*)(charset\s*=\s*([\w-]+))(.*)/i) and
               return m[4]
+            catch(:encoding_found) {
+              Nokogiri::HTML::SAX::Parser.new(JumpSAXHandler.new(:encoding_found.to_s)).parse(chunk)
+              nil
+            }
+          else
+            handler = SAXHandler.new
+            parser = Nokogiri::HTML::SAX::PushParser.new(handler)
+            parser << chunk rescue Nokogiri::SyntaxError
+            handler.encoding
           end
-
-          catch(*if RUBY_VERSION < '1.9' then :encoding_found end) { |tag|
-            Nokogiri::HTML::SAX::Parser.new(SAXHandler.new(tag)).parse(chunk)
-            nil
-          }
-        rescue Nokogiri::SyntaxError, RuntimeError
-          # Ignore parser errors that nokogiri may raise
-          nil
         end
 
         def self.is_jruby_without_fix?
@@ -196,7 +203,7 @@ module Nokogiri
             return m[4]
 
           catch(:encoding_found) {
-            Nokogiri::HTML::SAX::Parser.new(SAXHandler.new(:encoding_found.to_s)).parse(chunk)
+            Nokogiri::HTML::SAX::Parser.new(JumpSAXHandler.new(:encoding_found.to_s)).parse(chunk)
             nil
           }
         rescue Nokogiri::SyntaxError, RuntimeError

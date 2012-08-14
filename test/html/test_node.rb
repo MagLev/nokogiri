@@ -101,9 +101,7 @@ module Nokogiri
         assert another_node, 'should have a node'
 
         # This used to segv
-        assert_nothing_raised do
-          node.add_previous_sibling another_node
-        end
+        assert node.add_previous_sibling another_node
       end
 
       def test_z_swap
@@ -141,7 +139,7 @@ module Nokogiri
       def test_z_fragment_handler_does_not_regurge_on_invalid_attributes
 # SEGV in  spacePop from xmlParseElement
         iframe = %Q{<iframe style="width: 0%; height: 0px" src="http://someurl" allowtransparency></iframe>}
-        assert_nothing_raised { @html.at('div').fragment(iframe) }
+        assert @html.at('div').fragment(iframe)
       end
 
       def test_z_fragment   # SEGV in  spacePop from xmlParseElement

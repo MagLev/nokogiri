@@ -1,7 +1,7 @@
 /**
  * (The MIT License)
  *
- * Copyright (c) 2008 - 2011:
+ * Copyright (c) 2008 - 2012:
  *
  * * {Aaron Patterson}[http://tenderlovemaking.com]
  * * {Mike Dalessio}[http://mike.daless.io]
@@ -87,7 +87,8 @@ public class HtmlDomParserContext extends XmlDomParserContext {
         XMLParserConfiguration config = new HTMLConfiguration();
         XMLDocumentFilter removeNSAttrsFilter = new RemoveNSAttrsFilter();
         XMLDocumentFilter elementValidityCheckFilter = new ElementValidityCheckFilter(errorHandler);
-        XMLDocumentFilter[] filters = { removeNSAttrsFilter,  elementValidityCheckFilter};
+        //XMLDocumentFilter[] filters = { removeNSAttrsFilter,  elementValidityCheckFilter};
+        XMLDocumentFilter[] filters = { elementValidityCheckFilter};
 
         config.setErrorHandler(this.errorHandler);
         parser = new DOMParser(config);
@@ -122,7 +123,7 @@ public class HtmlDomParserContext extends XmlDomParserContext {
                                        RubyClass klazz,
                                        Document document) {
         HtmlDocument htmlDocument = (HtmlDocument) NokogiriService.HTML_DOCUMENT_ALLOCATOR.allocate(context.getRuntime(), klazz);
-        htmlDocument.setNode(context, document);
+        htmlDocument.setDocumentNode(context, document);
         if (ruby_encoding.isNil()) {
             // ruby_encoding might have detected by HtmlDocument::EncodingReader
             if (detected_encoding != null && !detected_encoding.isNil()) {
@@ -134,6 +135,7 @@ public class HtmlDomParserContext extends XmlDomParserContext {
             }
         }
         htmlDocument.setEncoding(ruby_encoding);
+        htmlDocument.setParsedEncoding(java_encoding);
         return htmlDocument;
     }
     

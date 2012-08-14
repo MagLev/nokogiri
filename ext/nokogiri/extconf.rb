@@ -17,7 +17,7 @@ end
 $CFLAGS << " #{ENV["CFLAGS"]}"
 $LIBS << " #{ENV["LIBS"]}"
 
-if RbConfig::CONFIG['target_os'] == 'mingw32' || RbConfig::CONFIG['target_os'] =~ /mswin32/
+if RbConfig::CONFIG['target_os'] == 'mingw32' || RbConfig::CONFIG['target_os'] =~ /mswin/
   $CFLAGS << " -DXP_WIN -DXP_WIN32 -DUSE_INCLUDED_VASPRINTF"
 elsif RbConfig::CONFIG['target_os'] =~ /solaris/
   $CFLAGS << " -DUSE_INCLUDED_VASPRINTF"
@@ -30,10 +30,11 @@ if RbConfig::MAKEFILE_CONFIG['CC'] =~ /mingw/
 end
 
 if RbConfig::MAKEFILE_CONFIG['CC'] =~ /gcc/
-  $CFLAGS << " -O3 -Wall -Wcast-qual -Wwrite-strings -Wconversion -Wmissing-noreturn -Winline"
+  $CFLAGS << " -O3" unless $CFLAGS[/-O\d/]
+  $CFLAGS << " -Wall -Wcast-qual -Wwrite-strings -Wconversion -Wmissing-noreturn -Winline"
 end
 
-if RbConfig::CONFIG['target_os'] =~ /mswin32/
+if RbConfig::CONFIG['target_os'] =~ /mswin/
   lib_prefix = 'lib'
 
   # There's no default include/lib dir on Windows. Let's just add the Ruby ones
@@ -80,6 +81,13 @@ else
     '/usr/local/include/libxml2',
     File.join(INCLUDEDIR, "libxml2")
   ] + HEADER_DIRS
+
+  # If the user has homebrew installed, use the libxml2 inside homebrew
+  brew_prefix = `brew --prefix libxml2 2> /dev/null`.chomp
+  unless brew_prefix.empty?
+    LIB_DIRS.unshift File.join(brew_prefix, 'lib')
+    XML2_HEADER_DIRS.unshift File.join(brew_prefix, 'include/libxml2')
+  end
 end
 
 dir_config('zlib', HEADER_DIRS, LIB_DIRS)
@@ -96,7 +104,7 @@ pkg_config('libxslt') if RUBY_PLATFORM =~ /mingw/
 asplode "libxml2"  unless find_header('libxml/parser.h')
 asplode "libxslt"  unless find_header('libxslt/xslt.h')
 asplode "libexslt" unless find_header('libexslt/exslt.h')
-# asplode "libiconv" unless have_func('iconv_open', 'iconv.h') or have_library('iconv', 'iconv_open', 'iconv.h')
+# asplode "libiconv" unless have_func('iconv_open', 'iconv.h') or have_library('iconv', 'iconv_open', 'iconv.h') or find_library('iconv', 'iconv_open', 'iconv.h')
 asplode "libxml2"  unless find_library("#{lib_prefix}xml2", 'xmlParseDoc')
 asplode "libxslt"  unless find_library("#{lib_prefix}xslt", 'xsltParseStylesheetDoc')
 asplode "libexslt" unless find_library("#{lib_prefix}exslt", 'exsltFuncRegister')

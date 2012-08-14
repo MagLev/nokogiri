@@ -49,60 +49,51 @@ static VALUE register_variable(VALUE self, VALUE name, VALUE value)
    return self;
 }
 
-static void ruby_funcall(xmlXPathParserContextPtr ctx, int nargs)
+void Nokogiri_marshal_xpath_funcall_and_return_values(xmlXPathParserContextPtr ctx, int nargs, VALUE handler, const char* function_name)
 {
-  VALUE xpath_handler = Qnil;
-  VALUE result;
-  // VALUE *argv;
-  VALUE doc;
+  int i;
+  VALUE result, doc;
+  VALUE *argv;
   VALUE node_set = Qnil;
   xmlNodeSetPtr xml_node_set = NULL;
   xmlXPathObjectPtr obj;
-  int i;
+  nokogiriNodeSetTuple *node_set_tuple;
 
-  assert(ctx);
-  assert(ctx->context);
-  assert(ctx->context->userData);
   assert(ctx->context->doc);
   assert(DOC_RUBY_OBJECT_TEST(ctx->context->doc));
 
-  xpath_handler = (VALUE)(ctx->context->userData);
-
-  //argv = (VALUE *)calloc((size_t)nargs, sizeof(VALUE));
-  //for (i = 0 ; i < nargs ; ++i) {
-  //  rb_gc_register_address(&argv[i]);
-  //}
-  VALUE argv = rb_ary_new2(nargs);
+  // argv = (VALUE *)calloc((size_t)nargs, sizeof(VALUE));
+  // for (i = 0 ; i < nargs ; ++i) {
+  //   rb_gc_register_address(&argv[i]);
+  // }
 
   doc = DOC_RUBY_OBJECT(ctx->context->doc);
 
-  i = nargs - 1;
-  do {
-    obj = valuePop(ctx);
-    switch(obj->type) {
-      case XPATH_STRING:
-        rb_ary_store( argv, i, NOKOGIRI_STR_NEW2(obj->stringval));
-        break;
-      case XPATH_BOOLEAN:
-        rb_ary_store( argv, i,  obj->boolval == 1 ? Qtrue : Qfalse);
-        break;
-      case XPATH_NUMBER:
-        rb_ary_store( argv, i,  rb_float_new(obj->floatval) );
-        break;
-      case XPATH_NODESET:
-        rb_ary_store( argv, i,  Nokogiri_wrap_xml_node_set(obj->nodesetval, doc));
-        break;
-      default:
-        rb_ary_store( argv, i,  NOKOGIRI_STR_NEW2(xmlXPathCastToString(obj)) );
-    }
-    xmlXPathFreeNodeSetList(obj);
-  } while(i-- > 0);
+  if (nargs > 0) {
+    i = nargs - 1;
+    do {
+      obj = valuePop(ctx);
+      switch(obj->type) {
+        case XPATH_STRING:
+          rb_ary_store(argv, i, NOKOGIRI_STR_NEW2(obj->stringval));
+          break;
+        case XPATH_BOOLEAN:
+          rb_ary_store(argv, i, obj->boolval == 1 ? Qtrue : Qfalse);
+          break;
+        case XPATH_NUMBER:
+          rb_ary_store(argv, i, rb_float_new(obj->floatval));
+          break;
+        case XPATH_NODESET:
+          rb_ary_store(argv, i, Nokogiri_wrap_xml_node_set(obj->nodesetval, doc));
+          break;
+        default:
+          rb_ary_store(argv, i, NOKOGIRI_STR_NEW2(xmlXPathCastToString(obj)));
+      }
+      xmlXPathFreeNodeSetList(obj);
+    } while(i-- > 0);
+  }
 
-  result = rb_funcall2_(
-      xpath_handler,
-      rb_intern((const char *)ctx->context->function),
-      nargs, argv
-  );
+  result = rb_funcall2(handler, rb_intern((const char*)function_name), nargs, argv);
 
   // for (i = 0 ; i < nargs ; ++i) {
   //  rb_gc_unregister_address(&argv[i]);
@@ -123,7 +114,7 @@ static void ruby_funcall(xmlXPathParserContextPtr ctx, int nargs)
       char *res_str = (char*)res_cstr;
       xmlXPathReturnString(
           ctx,
-          (xmlChar *)xmlXPathWrapCString( res_str )
+          xmlCharStrdup(res_str)
       );
       }
       break;
@@ -141,13 +132,15 @@ static void ruby_funcall(xmlXPathParserContextPtr ctx, int nargs)
 	args[0] = doc;
 	args[1] = result;
         node_set = rb_class_new_instance(2, args, cNokogiriXmlNodeSet);
-        Data_Get_Struct(node_set, xmlNodeSet, xml_node_set);
+        Data_Get_Struct(node_set, nokogiriNodeSetTuple, node_set_tuple);
+	xml_node_set = node_set_tuple->node_set;
         xmlXPathReturnNodeSet(ctx, xmlXPathNodeSetMerge(NULL, xml_node_set));
       }
       break;
     case T_DATA:
-      if( rb_obj_is_kind_of_(result, cNokogiriXmlNodeSet)) {
-        Data_Get_Struct(result, xmlNodeSet, xml_node_set);
+      if(RTEST(rb_obj_is_kind_of(result, cNokogiriXmlNodeSet))) {
+        Data_Get_Struct(result, nokogiriNodeSetTuple, node_set_tuple);
+	xml_node_set = node_set_tuple->node_set;
         /* Copy the node set, otherwise it will get GC'd. */
         xmlXPathReturnNodeSet(ctx, xmlXPathNodeSetMerge(NULL, xml_node_set));
         break;
@@ -155,6 +148,22 @@ static void ruby_funcall(xmlXPathParserContextPtr ctx, int nargs)
     default:
       rb_raise(rb_eRuntimeError, "Invalid return type");
   }
+}
+
+static void ruby_funcall(xmlXPathParserContextPtr ctx, int nargs)
+{
+  VALUE handler = Qnil;
+  const char *function = NULL ;
+
+  assert(ctx);
+  assert(ctx->context);
+  assert(ctx->context->userData);
+  assert(ctx->context->function);
+
+  handler = (VALUE)(ctx->context->userData);
+  function = (const char*)(ctx->context->function);
+
+  Nokogiri_marshal_xpath_funcall_and_return_values(ctx, nargs, handler, function);
 }
 
 static xmlXPathFunction lookup( void *ctx,
@@ -242,6 +251,7 @@ static VALUE evaluate(int argc, VALUE *argv, VALUE self)
   switch(xpath->type) {
     case XPATH_STRING:
       thing = NOKOGIRI_STR_NEW2(xpath->stringval);
+      xmlFree(xpath->stringval);
       break;
     case XPATH_NODESET:
       if(NULL == xpath->nodesetval) {

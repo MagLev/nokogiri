@@ -1,4 +1,10 @@
-# not-enough-information
+# Standard Responses to Requests
+
+These responses are needed often enough that I figured, let's just
+check them in for future reference and use.
+
+
+# Not enough information to help
 
 Hello!
 
@@ -22,12 +28,13 @@ take a look at http://bit.ly/nokohelp
 
 Thank you so much!
 
-# not-a-bug
+
+# Not a bug
 
 Hello!
 
-Thanks for asking this question! Your request for help will not go
-unanswered!
+Thanks for asking this question! Your request for assistance using
+Nokogiri will not go unanswered!
 
 However, Nokogiri's Github Issues is reserved for reporting bugs or
 submitting patches. If you ask your question on the mailing list, Team

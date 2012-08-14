@@ -138,7 +138,8 @@ static VALUE reparent_node_with(VALUE pivot_obj, VALUE reparentee_obj, pivot_rep
     }
   }
 
-  if (reparentee->type == XML_TEXT_NODE && pivot->next && pivot->next->type == XML_TEXT_NODE) {
+  if (prf != xmlAddPrevSibling && prf != xmlAddNextSibling
+      && reparentee->type == XML_TEXT_NODE && pivot->next && pivot->next->type == XML_TEXT_NODE) {
     /*
      *  libxml merges text nodes in a right-to-left fashion, meaning that if
      *  there are two text nodes who would be adjacent, the right (or following,
@@ -484,7 +485,13 @@ static VALUE previous_element(VALUE self)
 /* :nodoc: */
 static VALUE replace(VALUE self, VALUE new_node)
 {
-  return reparent_node_with(self, new_node, xmlReplaceNodeWrapper) ;
+    VALUE reparent = reparent_node_with(self, new_node, xmlReplaceNodeWrapper);
+
+    xmlNodePtr pivot;
+    Data_Get_Struct(self, xmlNode, pivot);
+    NOKOGIRI_ROOT_NODE(pivot);
+
+    return reparent;
 }
 
 /*
@@ -1212,70 +1219,98 @@ static VALUE process_xincludes(VALUE self, VALUE options)
 /* TODO: DOCUMENT ME */
 static VALUE in_context(VALUE self, VALUE _str, VALUE _options)
 {
-  xmlNodePtr node;
-  xmlNodePtr list;
-  xmlNodePtr child_iter;
-  xmlNodeSetPtr set;
-  xmlParserErrors error;
-  VALUE doc, err;
+    xmlNodePtr node, list = 0, child_iter, node_children, doc_children;
+    xmlNodeSetPtr set;
+    xmlParserErrors error;
+    VALUE doc, err;
+    int doc_is_empty;
 
-  Data_Get_Struct(self, xmlNode, node);
+    Data_Get_Struct(self, xmlNode, node);
 
-  doc = DOC_RUBY_OBJECT(node->doc);
-  err = rb_iv_get(doc, "@errors");
+    doc = DOC_RUBY_OBJECT(node->doc);
+    err = rb_iv_get(doc, "@errors");
+    doc_is_empty = (node->doc->children == NULL) ? 1 : 0;
+    node_children = node->children;
+    doc_children  = node->doc->children;
 
-  xmlSetStructuredErrorFunc((void *)err, Nokogiri_error_array_pusher);
+    xmlSetStructuredErrorFunc((void *)err, Nokogiri_error_array_pusher);
 
-  /* Twiddle global variable because of a bug in libxml2.
-   * http://git.gnome.org/browse/libxml2/commit/?id=e20fb5a72c83cbfc8e4a8aa3943c6be8febadab7
-   */
+    /* Twiddle global variable because of a bug in libxml2.
+     * http://git.gnome.org/browse/libxml2/commit/?id=e20fb5a72c83cbfc8e4a8aa3943c6be8febadab7
+     */
 #ifndef HTML_PARSE_NOIMPLIED
-  htmlHandleOmittedElem(0);
+    htmlHandleOmittedElem(0);
 #endif
 
-  error = xmlParseInNodeContext(
-      node,
-      StringValuePtr(_str),
-      (int)RSTRING_LEN(_str),
-      (int)NUM2INT(_options),
-      &list);
+    /* This function adds a fake node to the child of +node+.  If the parser
+     * does not exit cleanly with XML_ERR_OK, the list is freed.  This can
+     * leave the child pointers in a bad state if they were originally empty.
+     *
+     * http://git.gnome.org/browse/libxml2/tree/parser.c#n13177
+     * */
+    error = xmlParseInNodeContext(node, StringValuePtr(_str),
+				  (int)RSTRING_LEN(_str),
+				  (int)NUM2INT(_options), &list);
 
-  /* make sure parent/child pointers are coherent so an unlink will work properly (#331) */
-  child_iter = node->doc->children ;
-  while (child_iter) {
-    if (child_iter->parent != (xmlNodePtr)node->doc)
-      child_iter->parent = (xmlNodePtr)node->doc ;
-    child_iter = child_iter->next ;
-  }
+    /* xmlParseInNodeContext should not mutate the original document or node,
+     * so reassigning these pointers should be OK.  The reason we're reassigning
+     * is because if there were errors, it's possible for the child pointers
+     * to be manipulated. */
+    if (error != XML_ERR_OK) {
+      node->doc->children = doc_children;
+      node->children = node_children;
+    }
+
+    /* make sure parent/child pointers are coherent so an unlink will work
+     * properly (#331)
+     */
+    child_iter = node->doc->children ;
+    while (child_iter) {
+      if (child_iter->parent != (xmlNodePtr)node->doc)
+        child_iter->parent = (xmlNodePtr)node->doc;
+      child_iter = child_iter->next;
+    }
 
 #ifndef HTML_PARSE_NOIMPLIED
-  htmlHandleOmittedElem(1);
+    htmlHandleOmittedElem(1);
 #endif
 
-  xmlSetStructuredErrorFunc(NULL, NULL);
+    xmlSetStructuredErrorFunc(NULL, NULL);
 
-  /* FIXME: This probably needs to handle more constants... */
-  switch(error) {
-    case XML_ERR_OK:
-      break;
+    /* Workaround for a libxml2 bug where a parsing error may leave a broken
+     * node reference in node->doc->children.
+     * This workaround is limited to when a parse error occurs, the document
+     * went from having no children to having children, and the context node is
+     * part of a document fragment.
+     * https://bugzilla.gnome.org/show_bug.cgi?id=668155
+     */
+    if (error != XML_ERR_OK && doc_is_empty && node->doc->children != NULL) {
+      child_iter = node;
+      while (child_iter->parent)
+        child_iter = child_iter->parent;
+	
+      if (child_iter->type == XML_DOCUMENT_FRAG_NODE)
+        node->doc->children = NULL;
+    }
 
-    case XML_ERR_INTERNAL_ERROR:
-    case XML_ERR_NO_MEMORY:
-      rb_raise(rb_eRuntimeError, "error parsing fragment (%d)", error);
-      break;
+    /* FIXME: This probably needs to handle more constants... */
+    switch (error) {
+      case XML_ERR_INTERNAL_ERROR:
+      case XML_ERR_NO_MEMORY:
+	rb_raise(rb_eRuntimeError, "error parsing fragment (%d)", error);
+	break;
+      default:
+	break;
+    }
 
-    default:
-      break;
-  }
+    set = xmlXPathNodeSetCreate(NULL);
 
-  set = xmlXPathNodeSetCreate(NULL);
+    while (list) {
+      xmlXPathNodeSetAddUnique(set, list);
+      list = list->next;
+    }
 
-  while(list) {
-    xmlXPathNodeSetAddUnique(set, list);
-    list = list->next;
-  }
-
-  return Nokogiri_wrap_xml_node_set(set, doc);
+    return Nokogiri_wrap_xml_node_set(set, doc);
 }
 
 static VALUE sym_iv_doc = Qnil;
@@ -1286,7 +1321,7 @@ VALUE Nokogiri_wrap_xml_node(VALUE klass, xmlNodePtr node)
   VALUE document = Qnil ;
   VALUE node_cache = Qnil ;
   VALUE rb_node = Qnil ;
-  int node_has_a_document = 0 ;
+  nokogiriTuplePtr node_has_a_document;
   void (*mark_method)(xmlNodePtr) = NULL ;
 
   assert(node);
@@ -1294,7 +1329,13 @@ VALUE Nokogiri_wrap_xml_node(VALUE klass, xmlNodePtr node)
   if(node->type == XML_DOCUMENT_NODE || node->type == XML_HTML_DOCUMENT_NODE)
       return DOC_RUBY_OBJECT(node->doc);
 
-  if(NULL != node->_private) return (VALUE)node->_private;
+  /* It's OK if the node doesn't have a fully-realized document (as in XML::Reader). */
+  /* see https://github.com/tenderlove/nokogiri/issues/95 */
+  /* and https://github.com/tenderlove/nokogiri/issues/439 */
+  node_has_a_document = DOC_RUBY_OBJECT_TEST(node->doc);
+
+  if(node->_private && node_has_a_document)
+    return (VALUE)node->_private;
 
   if (!RTEST(klass)) {
     switch(node->type) {
@@ -1340,10 +1381,7 @@ VALUE Nokogiri_wrap_xml_node(VALUE klass, xmlNodePtr node)
    }
   }
 
-  /* It's OK if the node doesn't have a fully-realized document (as in XML::Reader). */
-  /* see https://github.com/tenderlove/nokogiri/issues/95 */
-  /* and https://github.com/tenderlove/nokogiri/issues/439 */
-  node_has_a_document = (DOC_RUBY_OBJECT_TEST(node->doc) && DOC_RUBY_OBJECT(node->doc)) ? 1 : 0 ;
+  mark_method = node_has_a_document ? mark : NULL ;
 
   if (DOC_RUBY_OBJECT_TEST(node->doc)) {  // maglev workaround , no gc mark
     VALUE ref = DOC_RUBY_OBJECT(node->doc);
@@ -1415,7 +1453,6 @@ void init_xml_node()
   rb_define_method(klass, "key?", key_eh, 1);
   rb_define_method(klass, "namespaced_key?", namespaced_key_eh, 2);
   rb_define_method(klass, "blank?", blank_eh, 0);
-  rb_define_method(klass, "[]=", set, 2);
   rb_define_method(klass, "attribute_nodes", attribute_nodes, 0);
   rb_define_method(klass, "attribute", attr, 1);
   rb_define_method(klass, "attribute_with_ns", attribute_with_ns, 2);
@@ -1442,9 +1479,12 @@ void init_xml_node()
   rb_define_private_method(klass, "native_write_to", native_write_to, 4);
   rb_define_private_method(klass, "native_content=", set_content, 1);
   rb_define_private_method(klass, "get", get, 1);
+  rb_define_private_method(klass, "set", set, 2);
   rb_define_private_method(klass, "set_namespace", set_namespace, 1);
   rb_define_private_method(klass, "compare", compare, 1);
 
   decorate      = rb_intern("decorate");
   decorate_bang = rb_intern("decorate!");
 }
+
+/* vim: set noet sw=4 sws=4 */

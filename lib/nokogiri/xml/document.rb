@@ -8,6 +8,12 @@ module Nokogiri
     # For searching a Document, see Nokogiri::XML::Node#css and
     # Nokogiri::XML::Node#xpath
     class Document < Nokogiri::XML::Node
+      # I'm ignoring unicode characters here.
+      # See http://www.w3.org/TR/REC-xml-names/#ns-decl for more details.
+      NCNAME_START_CHAR = "A-Za-z_"
+      NCNAME_CHAR       = NCNAME_START_CHAR + "\\-.0-9"
+      NCNAME_RE         = /^xmlns(:[#{NCNAME_START_CHAR}][#{NCNAME_CHAR}]*)?$/
+
       ##
       # Parse an XML file.  +string_or_io+ may be a String, or any object that
       # responds to _read_ and _close_ such as an IO, or StringIO.
@@ -60,7 +66,7 @@ module Nokogiri
           when Hash
             arg.each { |k,v|
               key = k.to_s
-              if key =~ /^xmlns(:\w+)?$/
+              if key =~ NCNAME_RE
                 ns_name = key.split(":", 2)[1]
                 elm.add_namespace_definition ns_name, v
                 next
@@ -126,7 +132,7 @@ module Nokogiri
       # in the hash.
       #
       # Note this is a very expensive operation in current implementation, as it
-      # traverses the entire graph, and also has to bring each node accross the
+      # traverses the entire graph, and also has to bring each node across the
       # libxml bridge into a ruby object.
       def collect_namespaces
         ns = {}
@@ -202,11 +208,12 @@ module Nokogiri
       undef_method :add_namespace_definition, :attributes
       undef_method :namespace_definitions, :line, :add_namespace
 
-      def add_child child
+      def add_child node_or_tags
         raise "Document already has a root node" if root
-        if child.type == Node::DOCUMENT_FRAG_NODE
-          raise "Document cannot have multiple root nodes" if child.children.size > 1
-          super(child.children.first)
+        node_or_tags = coerce(node_or_tags)
+        if node_or_tags.is_a?(XML::NodeSet)
+          raise "Document cannot have multiple root nodes" if node_or_tags.size > 1
+          super(node_or_tags.first)
         else
           super
         end

@@ -125,8 +125,10 @@ module Nokogiri
 
       def test_meta_encoding
         assert_equal 'UTF-8', @html.meta_encoding
+      end
 
-        html = Nokogiri::HTML(<<-eohtml)
+      def test_meta_encoding_is_strict_about_http_equiv
+        doc = Nokogiri::HTML(<<-eohtml)
 <html>
   <head>
     <meta http-equiv="X-Content-Type" content="text/html; charset=Shift_JIS">
@@ -136,7 +138,21 @@ module Nokogiri
   </body>
 </html>
         eohtml
-        assert_nil html.meta_encoding
+        assert_nil doc.meta_encoding
+      end
+
+      def test_meta_encoding_handles_malformed_content_charset
+        doc = Nokogiri::HTML(<<EOHTML)
+<html>
+  <head>
+    <meta http-equiv="Content-type" content="text/html; utf-8" />
+  </head>
+  <body>
+    foo
+  </body>
+</html>
+EOHTML
+        assert_nil doc.meta_encoding
       end
 
       def test_meta_encoding=
@@ -199,6 +215,32 @@ eohtml
         assert_nil html.meta_encoding
       end
 
+      def test_meta_encoding_with_empty_content_type
+        html = Nokogiri::HTML(<<-eohtml)
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="">
+  </head>
+  <body>
+    foo
+  </body>
+</html>
+        eohtml
+        assert_nil html.meta_encoding
+
+        html = Nokogiri::HTML(<<-eohtml)
+<html>
+  <head>
+    <meta http-equiv="Content-Type">
+  </head>
+  <body>
+    foo
+  </body>
+</html>
+        eohtml
+        assert_nil html.meta_encoding
+      end
+
       def test_root_node_parent_is_document
         parent = @html.root.parent
         assert_equal @html, parent
@@ -206,9 +248,7 @@ eohtml
       end
 
       def test_parse_handles_nil_gracefully
-        assert_nothing_raised do
-          @doc = Nokogiri::HTML::Document.parse(nil)
-        end
+        @doc = Nokogiri::HTML::Document.parse(nil)
         assert_instance_of Nokogiri::HTML::Document, @doc
       end
 

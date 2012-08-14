@@ -35,24 +35,22 @@ HOE = Hoe.spec 'maglev-nokogiri' do
 
   self.clean_globs += [
     'nokogiri.gemspec',
-    'lib/nokogiri/*.{o,so,bundle,a,log,dll}',
-    'lib/nokogiri/nokogiri.{so,dylib,rb,bundle}',
-    'lib/nokogiri/nokogiri.rb',
+    'lib/nokogiri/nokogiri.{bundle,jar,rb,so}',
     'lib/nokogiri/1.{8,9}',
     GENERATED_PARSER,
     GENERATED_TOKENIZER
   ]
 
   self.extra_dev_deps += [
-    ["racc",            ">= 1.4.6"],
-    ["rexical",         ">= 1.0.5"],
-    ["rake-compiler",   ">= 0.7.9"],
-    ["minitest",        "~> 2.2.2"],
+    ["hoe-bundler",     ">= 1.1"],
+    ["hoe-debugging",   ">= 1.0.3"],
+    ["hoe-gemspec",     ">= 1.0"],
+    ["hoe-git",         ">= 1.4"],
     ["mini_portile",    ">= 0.2.2"],
-    ["hoe-debugging",   ">= 0"],
-    ["hoe-git",         ">= 0"],
-    ["hoe-gemspec",     ">= 0"],
-    ["hoe-bundler",     ">= 0"]
+    ["minitest",        "~> 2.2.2"],
+    ["racc",            ">= 1.4.6"],
+    ["rake-compiler",   "=  0.8.0"],
+    ["rexical",         ">= 1.0.5"],
   ]
 
   if java?
@@ -157,10 +155,19 @@ end
 
 desc "build a windows gem without all the ceremony."
 task "gem:windows" => "gem" do
-  rake_compiler_config = YAML.load_file("#{ENV['HOME']}/.rake-compiler/config.yml")
+  cross_rubies = ["1.8.7-p330", "1.9.2-p136"]
+  ruby_cc_version = cross_rubies.collect { |_| _.split("-").first }.join(":") # e.g., "1.8.7:1.9.2"
+  rake_compiler_config_path = "#{ENV['HOME']}/.rake-compiler/config.yml"
 
-  # check that rake-compiler config contains the right patchlevels of 1.8.6 and 1.9.1. see #279.
-  ["1.8.6-p383", "1.9.1-p243"].each do |version|
+  unless File.exists? rake_compiler_config_path
+    raise "rake-compiler has not installed any cross rubies. try running 'env --unset=HOST rake-compiler cross-ruby VERSION=#{cross_rubies.first}'"
+  end
+  rake_compiler_config = YAML.load_file(rake_compiler_config_path)
+
+  # check that rake-compiler config contains the right patchlevels. see #279 for background,
+  # and http://blog.mmediasys.com/2011/01/22/rake-compiler-updated-list-of-supported-ruby-versions-for-cross-compilation/
+  # for more up-to-date docs.
+  cross_rubies.each do |version|
     majmin, patchlevel = version.split("-")
     rbconfig = "rbconfig-#{majmin}"
     unless rake_compiler_config.key?(rbconfig) && rake_compiler_config[rbconfig] =~ /-#{patchlevel}/
@@ -168,12 +175,12 @@ task "gem:windows" => "gem" do
     end
   end
 
-  # verify that --export-all is in the 1.9.1 rbconfig. see #279,#374,#375.
-  rbconfig_191 = rake_compiler_config["rbconfig-1.9.1"]
-  raise "rbconfig #{rbconfig_191} needs --export-all in its DLDFLAGS value" if File.read(rbconfig_191).grep(/CONFIG\["DLDFLAGS"\].*--export-all/).empty?
+  # verify that --export-all is in the 1.9 rbconfig. see #279,#374,#375.
+  rbconfig_19 = rake_compiler_config["rbconfig-1.9.2"]
+  raise "rbconfig #{rbconfig_19} needs --export-all in its DLDFLAGS value" if File.read(rbconfig_19).split("\n").grep(/CONFIG\["DLDFLAGS"\].*--export-all/).empty?
 
   pkg_config_path = [:libxslt, :libxml2].collect { |pkg| File.join($recipes[pkg].path, "lib/pkgconfig") }.join(":")
-  sh("env PKG_CONFIG_PATH=#{pkg_config_path} RUBY_CC_VERSION=1.8.6:1.9.1 rake cross native gem") || raise("build failed!")
+  sh("env PKG_CONFIG_PATH=#{pkg_config_path} RUBY_CC_VERSION=#{ruby_cc_version} rake cross native gem") || raise("build failed!")
 end
 
 # vim: syntax=Ruby

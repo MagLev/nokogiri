@@ -256,6 +256,12 @@ module Nokogiri
       end
 
       ###
+      # Set the attribute value for the attribute +name+ to +value+
+      def []= name, value
+        set name.to_s, value
+      end
+
+      ###
       # Add +node_or_tags+ as a child of this Node.
       # +node_or_tags+ can be a Nokogiri::XML::Node, a ::DocumentFragment, a ::NodeSet, or a string containing markup.
       #
@@ -291,6 +297,8 @@ module Nokogiri
       #
       # Also see related method +before+.
       def add_previous_sibling node_or_tags
+        raise ArgumentError.new("A document may not have multiple root nodes.") if parent.is_a?(XML::Document) && !node_or_tags.is_a?(XML::ProcessingInstruction)
+
         node_or_tags = coerce(node_or_tags)
         if node_or_tags.is_a?(XML::NodeSet)
           if text?
@@ -315,6 +323,8 @@ module Nokogiri
       #
       # Also see related method +after+.
       def add_next_sibling node_or_tags
+        raise ArgumentError.new("A document may not have multiple root nodes.") if parent.is_a?(XML::Document)
+        
         node_or_tags = coerce(node_or_tags)
         if node_or_tags.is_a?(XML::NodeSet)
           if text?
@@ -766,8 +776,7 @@ module Nokogiri
       #
       # See Node#write_to for a list of +options+
       def to_xml options = {}
-        options[:save_with] |= SaveOptions::DEFAULT_XML if options[:save_with]
-        options[:save_with] = SaveOptions::DEFAULT_XML unless options[:save_with]
+        options[:save_with] ||= SaveOptions::DEFAULT_XML
         serialize(options)
       end
 
@@ -879,6 +888,14 @@ module Nokogiri
         process_xincludes(options.to_i)
       end
 
+      def canonicalize(mode=XML::XML_C14N_1_0,inclusive_namespaces=nil,with_comments=false)
+        c14n_root = self
+        document.canonicalize(mode, inclusive_namespaces, with_comments) do |node, parent|
+          tn = node.is_a?(XML::Node) ? node : parent
+          tn == c14n_root || tn.ancestors.include?(c14n_root)
+        end
+      end
+
       private
 
       def extract_params params # :nodoc:
@@ -907,7 +924,7 @@ module Nokogiri
         return data.children           if data.is_a?(XML::DocumentFragment)
         return fragment(data).children if data.is_a?(String)
 
-        if data.is_a?(Document) || !data.is_a?(XML::Node)
+        if data.is_a?(Document) || data.is_a?(XML::Attr) || !data.is_a?(XML::Node)
           raise ArgumentError, <<-EOERR
 Requires a Node, NodeSet or String argument, and cannot accept a #{data.class}.
 (You probably want to select a node from the Document with at() or search(), or create a new Node via Node.new().)

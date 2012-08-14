@@ -1,7 +1,7 @@
 /**
  * (The MIT License)
  *
- * Copyright (c) 2008 - 2011:
+ * Copyright (c) 2008 - 2012:
  *
  * * {Aaron Patterson}[http://tenderlovemaking.com]
  * * {Mike Dalessio}[http://mike.daless.io]
@@ -40,6 +40,9 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.StringReader;
+import java.nio.charset.Charset;
+import java.nio.charset.UnsupportedCharsetException;
 
 import org.jruby.Ruby;
 import org.jruby.RubyClass;
@@ -67,6 +70,7 @@ import org.xml.sax.ext.EntityResolver2;
 public class ParserContext extends RubyObject {
     protected InputSource source = null;
     protected IRubyObject detected_encoding = null;
+    protected int stringDataSize = -1;
 
     /**
      * Create a file base input source taking into account the current
@@ -114,12 +118,17 @@ public class ParserContext extends RubyObject {
         }
 
         if (isAbsolutePath(path)) {
-            source = new InputSource();
-            if (detected_encoding != null) {
-                source.setEncoding((String) detected_encoding.toJava(String.class));
-            }
-            source.setSystemId(path);
+            returnWithSystemId(path);
             return;
+        }
+        // Dir.chdir might be called at some point before this.
+        String currentDir = context.getRuntime().getCurrentDirectory();
+        if (path != null && currentDir != null && currentDir.length() != 0) {
+            String absPath = currentDir + "/" + path;
+            if (isAbsolutePath(absPath)) {
+                returnWithSystemId(absPath);
+                return;
+            }
         }
         RubyString stringData = null;
         if (invoke(context, data, "respond_to?",
@@ -153,14 +162,42 @@ public class ParserContext extends RubyObject {
             }
         }
         if (stringData != null) {
+            String encName = null;
+            if (stringData.encoding(context) != null) {
+                encName = stringData.encoding(context).toString();
+            }
+            Charset charset = null;
+            if (encName != null) {
+                try {
+                    charset = Charset.forName(encName);
+                } catch (UnsupportedCharsetException e) {
+                    // do nothing;
+                }
+            }
             ByteList bytes = stringData.getByteList();
-            source = new InputSource(new ByteArrayInputStream(bytes.unsafeBytes(), bytes.begin(), bytes.length()));
+            if (charset != null) {
+                StringReader reader = new StringReader(new String(bytes.unsafeBytes(), bytes.begin(), bytes.length(), charset));
+                source = new InputSource(reader);
+                source.setEncoding(charset.name());
+            } else {
+                stringDataSize = bytes.length() - bytes.begin();
+                source = new InputSource(new ByteArrayInputStream(bytes.unsafeBytes(), bytes.begin(), bytes.length()));
+            }
         }
     }
     
     private boolean isAbsolutePath(String url) {
         if (url == null) return false;
         return (new File(url)).isAbsolute();
+    }
+    
+    private void returnWithSystemId(String url) {
+        source = new InputSource();
+        if (detected_encoding != null) {
+            source.setEncoding((String) detected_encoding.toJava(String.class));
+        }
+        source.setSystemId(url);
+        return;
     }
 
     /**
