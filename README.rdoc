@@ -1,10 +1,10 @@
-= Nokogiri {<img src="https://secure.travis-ci.org/tenderlove/nokogiri.png?rvm=1.9.3" />}[http://travis-ci.org/tenderlove/nokogiri]
+= Nokogiri {<img src="https://secure.travis-ci.org/sparklemotion/nokogiri.png?rvm=1.9.3" />}[http://travis-ci.org/sparklemotion/nokogiri]
 
 * http://nokogiri.org
-* http://github.com/tenderlove/nokogiri/wikis
-* http://github.com/tenderlove/nokogiri/tree/master
+* http://github.com/sparklemotion/nokogiri/wikis
+* http://github.com/sparklemotion/nokogiri/tree/master
 * http://groups.google.com/group/nokogiri-talk
-* http://github.com/tenderlove/nokogiri/issues
+* http://github.com/sparklemotion/nokogiri/issues
 
 == DESCRIPTION:
 
@@ -34,10 +34,10 @@ is available here:
 
   * http://groups.google.com/group/nokogiri-talk
 
-The {bug tracker}[http://github.com/tenderlove/nokogiri/issues]
+The {bug tracker}[http://github.com/sparklemotion/nokogiri/issues]
 is available here:
 
-  * http://github.com/tenderlove/nokogiri/issues
+  * http://github.com/sparklemotion/nokogiri/issues
 
 The IRC channel is #nokogiri on freenode.
 
@@ -46,9 +46,9 @@ The IRC channel is #nokogiri on freenode.
   require 'nokogiri'
   require 'open-uri'
 
-  # Get a Nokogiri::HTML:Document for the page we’re interested in...
+  # Get a Nokogiri::HTML::Document for the page we’re interested in...
 
-  doc = Nokogiri::HTML(open('http://www.google.com/search?q=tenderlove'))
+  doc = Nokogiri::HTML(open('http://www.google.com/search?q=sparklemotion'))
 
   # Do funky things with it using Nokogiri::XML::Node methods...
 
@@ -151,7 +151,7 @@ Then run rake:
 
 Copyright (c) 2008 - 2012:
 
-* {Aaron Patterson}[http://tenderlovemaking.com]
+* {Aaron Patterson}[http://sparklemotionmaking.com]
 * {Mike Dalessio}[http://mike.daless.io]
 * {Charles Nutter}[http://blog.headius.com]
 * {Sergio Arbeo}[http://www.serabe.com]

@@ -167,27 +167,32 @@ public class XmlNode extends RubyObject {
      * @param anchorNode
      */
     protected static void coalesceTextNodes(ThreadContext context,
-                                            IRubyObject anchorNode) {
+                                            IRubyObject anchorNode,
+                                            AdoptScheme scheme) {
         XmlNode xa = asXmlNode(context, anchorNode);
 
         XmlNode xp = asXmlNodeOrNull(context, xa.previous_sibling(context));
         XmlNode xn = asXmlNodeOrNull(context, xa.next_sibling(context));
-        
+
         Node p = xp == null ? null : xp.node;
         Node a = xa.node;
         Node n = xn == null ? null : xn.node;
-        
+
         Node parent = a.getParentNode();
 
-        if (p != null && p.getNodeType() == Node.TEXT_NODE) {
-            xa.setContent(p.getNodeValue() + a.getNodeValue());
-            parent.removeChild(p);
-            xp.assimilateXmlNode(context, xa);
-        }
-        if (n != null && n.getNodeType() == Node.TEXT_NODE) {
+        boolean shouldMergeP = scheme == AdoptScheme.NEXT_SIBLING || scheme == AdoptScheme.CHILD || scheme == AdoptScheme.REPLACEMENT;
+        boolean shouldMergeN = scheme == AdoptScheme.PREV_SIBLING || scheme == AdoptScheme.REPLACEMENT;
+
+        // apply the merge right to left
+        if (shouldMergeN && n != null && n.getNodeType() == Node.TEXT_NODE) {
             xa.setContent(a.getNodeValue() + n.getNodeValue());
             parent.removeChild(n);
             xn.assimilateXmlNode(context, xa);
+        }
+        if (shouldMergeP && p != null && p.getNodeType() == Node.TEXT_NODE) {
+            xp.setContent(p.getNodeValue() + a.getNodeValue());
+            parent.removeChild(a);
+            xa.assimilateXmlNode(context, xp);
         }
     }
 
@@ -318,7 +323,15 @@ public class XmlNode extends RubyObject {
             throw getRuntime().newArgumentError("node must have owner document");
         }
 
-        Element element = document.createElementNS(null, rubyStringToString(name));
+        Element element = null;
+        String node_name = rubyStringToString(name);
+        try {
+          element = document.createElementNS(null, node_name);
+        } catch (org.w3c.dom.DOMException e) {
+            // issue#683 NAMESPACE_ERR is thrown from RDF::RDFXML::Writer.new
+            // retry without namespace
+            element = document.createElement(node_name);
+        }
         setNode(context, element);
     }
 
@@ -396,7 +409,10 @@ public class XmlNode extends RubyObject {
 
     public boolean isComment() { return false; }
 
-    public boolean isElement() { return false; }
+    public boolean isElement() {
+        if (node instanceof Element) return true; // in case of subclassing
+        else return false;
+    }
 
     public boolean isProcessingInstruction() { return false; }
 
@@ -430,7 +446,33 @@ public class XmlNode extends RubyObject {
     }
 
     public void relink_namespace(ThreadContext context) {
-        //this should delegate to subclasses' implementation
+        if (node instanceof Element) {
+            Element e = (Element) node;
+            e.getOwnerDocument().renameNode(e, e.lookupNamespaceURI(e.getPrefix()), e.getNodeName());
+
+            if (e.hasAttributes()) {
+                NamedNodeMap attrs = e.getAttributes();
+
+                for (int i = 0; i < attrs.getLength(); i++) {
+                    Attr attr = (Attr) attrs.item(i);
+                    String nsUri = "";
+                    String prefix = attr.getPrefix();
+                    String nodeName = attr.getNodeName();
+                    if ("xml".equals(prefix)) {
+                        nsUri = "http://www.w3.org/XML/1998/namespace";
+                    } else if ("xmlns".equals(prefix) || nodeName.equals("xmlns")) {
+                        nsUri = "http://www.w3.org/2000/xmlns/";
+                    } else {
+                        nsUri = attr.getNamespaceURI();
+                    }
+                    e.getOwnerDocument().renameNode(attr, nsUri, nodeName);
+                }
+            }
+
+            if (e.hasChildNodes()) {
+                ((XmlNodeSet) children(context)).relink_namespace(context);
+            }
+        }
     }
 
     // Users might extend XmlNode. This method works for such a case.
@@ -519,7 +561,15 @@ public class XmlNode extends RubyObject {
                                                 IRubyObject prefix,
                                                 IRubyObject href) {
         Node namespaceOwner;
-        if (node.getNodeType() == Node.ELEMENT_NODE) namespaceOwner = node;
+        if (node.getNodeType() == Node.ELEMENT_NODE) {
+            namespaceOwner = node;
+            Element element = (Element) node;
+
+            final String uri = "http://www.w3.org/2000/xmlns/";
+            String qName =
+                prefix.isNil() ? "xmlns" : "xmlns:" + rubyStringToString(prefix);
+            element.setAttributeNS(uri, qName, rubyStringToString(href));
+        }
         else if (node.getNodeType() == Node.ATTRIBUTE_NODE) namespaceOwner = ((Attr)node).getOwnerElement();
         else namespaceOwner = node.getParentNode();
         XmlNamespace ns = XmlNamespace.createFromPrefixAndHref(namespaceOwner, prefix, href);
@@ -758,7 +808,12 @@ public class XmlNode extends RubyObject {
         String textContent;
         if (content != null) textContent = rubyStringToString(content);
         else if (this instanceof XmlDocument) {
-            textContent = ((Document)this.node).getDocumentElement().getTextContent().trim();
+            Node node = ((Document)this.node).getDocumentElement();
+            if (node == null) {
+                textContent = "";
+            } else {
+                textContent = ((Document)this.node).getDocumentElement().getTextContent().trim();
+            }
         } else {
             textContent = this.node.getTextContent();
         }
@@ -1324,7 +1379,7 @@ public class XmlNode extends RubyObject {
          }
 
         if (otherNode.getNodeType() == Node.TEXT_NODE) {
-            coalesceTextNodes(context, other);
+            coalesceTextNodes(context, other, scheme);
         }
 
         relink_namespace(context);
@@ -1374,10 +1429,7 @@ public class XmlNode extends RubyObject {
                 otherNode.getParentNode().removeChild(otherNode);
             return;
         }
-        if (thisNode.getPreviousSibling() != null &&
-            thisNode.getPreviousSibling().getNodeType() == Node.TEXT_NODE &&
-            otherNode.getNodeType() == Node.TEXT_NODE) return;
-        
+
         parent.insertBefore(otherNode, thisNode);
     }
 

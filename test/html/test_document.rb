@@ -85,6 +85,17 @@ module Nokogiri
         assert_equal @html.to_s, html.to_s
       end
 
+      def test_document_parse_method_with_url
+        require 'open-uri'
+        begin
+          html = open('http://google.com').read
+        rescue
+          skip("This test needs the internet. Skips if no internet available.")
+        end
+        doc = Nokogiri::HTML html ,"http:/foobar.foobar/"
+        refute_empty doc.to_s, "Document should not be empty"
+      end
+
       ###
       # Nokogiri::HTML returns an empty Document when given a blank string GH#11
       def test_empty_string_returns_empty_doc
@@ -505,6 +516,12 @@ eohtml
       def test_serialize
         assert @html.serialize
         assert @html.to_html
+      end
+
+      def test_empty_document
+        # empty document should return "" #699
+        assert_equal "", Nokogiri::HTML.parse(nil).text
+        assert_equal "", Nokogiri::HTML.parse("").text
       end
     end
   end

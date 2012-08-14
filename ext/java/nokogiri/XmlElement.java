@@ -1,7 +1,7 @@
 /**
  * (The MIT License)
  *
- * Copyright (c) 2008 - 2011:
+ * Copyright (c) 2008 - 2012:
  *
  * * {Aaron Patterson}[http://tenderlovemaking.com]
  * * {Mike Dalessio}[http://mike.daless.io]
@@ -32,20 +32,15 @@
 
 package nokogiri;
 
-import static nokogiri.internals.NokogiriHelpers.rubyStringToString;
 import nokogiri.internals.SaveContextVisitor;
 
 import org.jruby.Ruby;
 import org.jruby.RubyArray;
 import org.jruby.RubyClass;
 import org.jruby.anno.JRubyClass;
-import org.jruby.anno.JRubyMethod;
 import org.jruby.javasupport.util.RuntimeHelpers;
 import org.jruby.runtime.ThreadContext;
-import org.jruby.runtime.builtin.IRubyObject;
-import org.w3c.dom.Attr;
 import org.w3c.dom.Element;
-import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 
 /**
@@ -77,59 +72,6 @@ public class XmlElement extends XmlNode {
                     RuntimeHelpers.invoke(context, doc, "decorate", this);
                 }
             }
-        }
-    }
-
-    @Override
-    @JRubyMethod(name = {"add_namespace_definition", "add_namespace"})
-    public IRubyObject add_namespace_definition(ThreadContext context,
-                                                IRubyObject prefix,
-                                                IRubyObject href) {
-        Element element = (Element) node;
-
-        final String uri = "http://www.w3.org/2000/xmlns/";
-        String qName =
-            prefix.isNil() ? "xmlns" : "xmlns:" + rubyStringToString(prefix);
-        element.setAttributeNS(uri, qName, rubyStringToString(href));
-
-        XmlNamespace ns = (XmlNamespace) super.add_namespace_definition(context, prefix, href);
-        updateNodeNamespaceIfNecessary(context, ns);
-
-        return ns;
-    }
-
-    @Override
-    public boolean isElement() { return true; }
-
-    @Override
-    public void relink_namespace(ThreadContext context) {
-        Element e = (Element) node;
-
-        e.getOwnerDocument().renameNode(e, e.lookupNamespaceURI(e.getPrefix()), e.getNodeName());
-
-        if(e.hasAttributes()) {
-            NamedNodeMap attrs = e.getAttributes();
-
-            for(int i = 0; i < attrs.getLength(); i++) {
-                Attr attr = (Attr) attrs.item(i);
-                String nsUri = "";
-                String prefix = attr.getPrefix();
-                String nodeName = attr.getNodeName();
-                if("xml".equals(prefix)) {
-                    nsUri = "http://www.w3.org/XML/1998/namespace";
-                } else if("xmlns".equals(prefix) || nodeName.equals("xmlns")) {
-                    nsUri = "http://www.w3.org/2000/xmlns/";
-                } else {
-                    nsUri = attr.lookupNamespaceURI(nodeName);
-                }
-
-                e.getOwnerDocument().renameNode(attr, nsUri, nodeName);
-
-            }
-        }
-
-        if(e.hasChildNodes()) {
-            ((XmlNodeSet) children(context)).relink_namespace(context);
         }
     }
     

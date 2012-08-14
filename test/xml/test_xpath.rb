@@ -217,7 +217,7 @@ module Nokogiri
       end
 
       def test_custom_xpath_handler_with_args_under_gc_pressure
-        # see http://github.com/tenderlove/nokogiri/issues/#issue/345
+        # see http://github.com/sparklemotion/nokogiri/issues/#issue/345
         tool_inspector = Class.new do
           def name_equals(nodeset, name, *args)
             nodeset.all? do |node|
@@ -262,6 +262,33 @@ module Nokogiri
             end
           }.new)
         assert_equal foo, doc.xpath("//foo")
+      end
+
+      def test_node_set_should_be_decorated
+        # "called decorate on nill" exception in JRuby issue#514
+        process_output= <<END
+<test>
+ <track type="Image">
+ <Format>LZ77</Format>
+</test>
+END
+        doc = Nokogiri::XML.parse(process_output)
+        node = doc.xpath(%{//track[@type='Video']})
+        assert_equal "[]", node.xpath("Format").inspect
+      end
+
+      def test_very_specific_xml_xpath_making_problems_in_jruby
+        # manually merges pull request #681
+        xml_string = %q{<?xml version="1.0" encoding="UTF-8"?>
+        <ONIXMessage xmlns:elibri="http://elibri.com.pl/ns/extensions" release="3.0" xmlns="http://www.editeur.org/onix/3.0/reference">
+          <Product>
+            <RecordReference>a</RecordReference>
+          </Product>
+        </ONIXMessage>}
+        
+        xml_doc = Nokogiri::XML(xml_string)
+        onix = xml_doc.children.first
+        assert_equal 'a', onix.at_xpath('xmlns:Product').at_xpath('xmlns:RecordReference').text
       end
     end
   end

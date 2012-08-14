@@ -1,4 +1,25 @@
-== 1.5.4 / unreleased
+== 1.5.5 / unreleased
+
+* Features
+
+  * Much-improved support for JRuby in 1.9 mode! Yay!
+
+* Bugfixes
+
+  * Regression in JRuby Nokogiri add_previous_sibling (1.5.0 -> 1.5.1) #691 (Thanks, John Shahid!)
+  * JRuby unable to create HTML doc if URL arg provided #674 (Thanks, John Shahid!)
+  * JRuby raises NullPointerException when given HTML document is nil or empty string. #699
+  * JRuby 1.9 error, uncaught throw 'encoding_found', has been fixed. #673
+  * Invalid encoding returned in JRuby with US-ASCII. #583
+  * XmlSaxPushParser raises IndexOutOfBoundsException when over 512 characters are given. #567, #615
+  * When xpath evaluation returns empty NodeSet, decorating NodeSet's base document raises exception. #514
+  * JRuby raises exception when xpath with namespace is specified. pull request #681 (Thanks, Piotr Szmielew)
+  * JRuby renders nodes without their namespace when subclassing Node. #695
+  * JRuby raises NAMESPACE_ERR (org.w3c.dom.DOMException) while instantiating RDF::RDFXML::Writer. #683
+  * JRuby is not able to use namespaces in xpath. #493
+
+
+== 1.5.4 / 2012-06-12
 
 * Features
 

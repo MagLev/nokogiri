@@ -156,6 +156,7 @@ module Nokogiri
               @doc.at_xpath("/root/a1/text()").content.must_equal "First nodehello"
             end
           end
+
           describe "#replace" do
             it "merges the Text node with adjacent Text nodes" do
               @doc.at_xpath("/root/a3/bx").replace Nokogiri::XML::Text.new('hello', @doc)
@@ -247,6 +248,13 @@ module Nokogiri
             assert_equal "foo <p></p> bartext node", xml.root.children.to_html
           end
 
+          it 'should remove the child node after the operation' do
+            fragment = Nokogiri::HTML::DocumentFragment.parse("a<a>b</a>")
+            node = fragment.children.last
+            node.add_previous_sibling node.children
+            assert_empty node.children, "should have no childrens"
+          end
+
           describe "with a text node before" do
             it "should not defensively dup the 'before' text node" do
               xml = Nokogiri::XML %Q(<root>before<p></p>after</root>)
@@ -321,7 +329,7 @@ module Nokogiri
 
         describe "unlinking a node and then reparenting it" do
           it "not blow up" do
-            # see http://github.com/tenderlove/nokogiri/issues#issue/22
+            # see http://github.com/sparklemotion/nokogiri/issues#issue/22
             10.times do
               begin
                 doc = Nokogiri::XML <<-EOHTML
