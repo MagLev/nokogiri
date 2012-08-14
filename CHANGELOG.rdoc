@@ -1,4 +1,30 @@
-== 1.5.3 / unreleased
+== 1.5.4 / unreleased
+
+* Features
+
+  * The "nokogiri" script now has more verbose output when passed the `--rng` option. #675 (Thanks, Dan Radez!)
+  * Build support on hardened Debian systems that use `-Werror=format-security`. #680.
+  * Better build support for systems with pkg-config. #584
+  * Better build support for systems with multiple iconv installations.
+
+* Bugfixes
+
+  * Segmentation fault when creating a comment node for a DocumentFragment. #677, #678.
+  * Treat '.' as xpath in at() and search(). #690
+
+  * [MRI, Security] Default parse options for XML documents were
+    changed to not make network connections during document parsing,
+    to avoid XXE vulnerability. #693
+
+    To re-enable this behavior, the configuration method `nononet` may
+    be called, like this:
+
+    Nokogiri::XML::Document.parse(xml) { |config| config.nononet }
+    
+    Insert your own joke about double-negatives here.
+
+
+== 1.5.3 / 2012-06-01
 
 * Features
 

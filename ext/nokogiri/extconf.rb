@@ -7,8 +7,8 @@ require 'mkmf'
 RbConfig::MAKEFILE_CONFIG['CC'] = ENV['CC'] if ENV['CC']
 
 ROOT = File.expand_path(File.join(File.dirname(__FILE__), '..', '..'))
-LIBDIR = Config::CONFIG['libdir']
-INCLUDEDIR = Config::CONFIG['includedir']
+LIBDIR = RbConfig::CONFIG['libdir']
+INCLUDEDIR = RbConfig::CONFIG['includedir']
 
 if defined?(RUBY_ENGINE) && RUBY_ENGINE == 'macruby'
   $LIBRUBYARG_STATIC.gsub!(/-static/, '')
@@ -99,12 +99,22 @@ def asplode(lib)
   abort "-----\n#{lib} is missing.  please visit http://nokogiri.org/tutorials/installing_nokogiri.html for help with installing dependencies.\n-----"
 end
 
-pkg_config('libxslt') if RUBY_PLATFORM =~ /mingw/
+pkg_config('libxslt')
+pkg_config('libxml-2.0')
+pkg_config('libiconv')
+
+def have_iconv?
+  %w{ iconv_open libiconv_open }.any? do |method|
+    have_func(method, 'iconv.h') or
+      have_library('iconv', method, 'iconv.h') or
+      find_library('iconv', method, 'iconv.h')
+  end
+end
 
 asplode "libxml2"  unless find_header('libxml/parser.h')
 asplode "libxslt"  unless find_header('libxslt/xslt.h')
 asplode "libexslt" unless find_header('libexslt/exslt.h')
-# asplode "libiconv" unless have_func('iconv_open', 'iconv.h') or have_library('iconv', 'iconv_open', 'iconv.h') or find_library('iconv', 'iconv_open', 'iconv.h')
+# asplode "libiconv" unless have_iconv?
 asplode "libxml2"  unless find_library("#{lib_prefix}xml2", 'xmlParseDoc')
 asplode "libxslt"  unless find_library("#{lib_prefix}xslt", 'xsltParseStylesheetDoc')
 asplode "libexslt" unless find_library("#{lib_prefix}exslt", 'exsltFuncRegister')

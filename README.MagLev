@@ -22,8 +22,8 @@ Make sure you use MRI ruby for the following:
 Build the gemspec and gem
 
   $ rake gem:spec
-  $ gem build maglev-nokogiri.gemspec
-  $ maglev-gem install maglev-nokogiri-1.5.0.<some_timestamp_or_other>.gem
+  $ gem build nokogiri-maglev-.gemspec
+  $ maglev-gem install nokogiri-maglev--*.gem
 
 ==== Run Nokogiri Tests
 

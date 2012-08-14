@@ -23,10 +23,11 @@ end
 
 require 'tasks/nokogiri.org'
 
-HOE = Hoe.spec 'maglev-nokogiri' do
+HOE = Hoe.spec 'nokogiri-maglev-' do
   developer 'Aaron Patterson', 'aaronp@rubyforge.org'
   developer 'Mike Dalessio',   'mike.dalessio@gmail.com'
   developer 'Yoko Harada',     'yokolet@gmail.com'
+  developer 'Tim Elliott',     'tle@holymonkey.com'
 
   self.readme_file  = ['README',    ENV['HLANG'], 'rdoc'].compact.join('.')
   self.history_file = ['CHANGELOG', ENV['HLANG'], 'rdoc'].compact.join('.')
@@ -49,6 +50,7 @@ HOE = Hoe.spec 'maglev-nokogiri' do
     ["mini_portile",    ">= 0.2.2"],
     ["minitest",        "~> 2.2.2"],
     ["racc",            ">= 1.4.6"],
+    ["rake",            ">= 0.9"],
     ["rake-compiler",   "=  0.8.0"],
     ["rexical",         ">= 1.0.5"],
   ]
