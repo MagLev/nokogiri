@@ -7,8 +7,8 @@ require 'mkmf'
 RbConfig::MAKEFILE_CONFIG['CC'] = ENV['CC'] if ENV['CC']
 
 ROOT = File.expand_path(File.join(File.dirname(__FILE__), '..', '..'))
-LIBDIR = RbConfig::CONFIG['libdir']
-INCLUDEDIR = RbConfig::CONFIG['includedir']
+LIBDIR = Config::CONFIG['libdir']
+INCLUDEDIR = Config::CONFIG['includedir']
 
 if defined?(RUBY_ENGINE) && RUBY_ENGINE == 'macruby'
   $LIBRUBYARG_STATIC.gsub!(/-static/, '')
@@ -17,7 +17,7 @@ end
 $CFLAGS << " #{ENV["CFLAGS"]}"
 $LIBS << " #{ENV["LIBS"]}"
 
-if RbConfig::CONFIG['target_os'] == 'mingw32' || RbConfig::CONFIG['target_os'] =~ /mswin/
+if RbConfig::CONFIG['target_os'] == 'mingw32' || RbConfig::CONFIG['target_os'] =~ /mswin32/
   $CFLAGS << " -DXP_WIN -DXP_WIN32 -DUSE_INCLUDED_VASPRINTF"
 elsif RbConfig::CONFIG['target_os'] =~ /solaris/
   $CFLAGS << " -DUSE_INCLUDED_VASPRINTF"
@@ -30,11 +30,10 @@ if RbConfig::MAKEFILE_CONFIG['CC'] =~ /mingw/
 end
 
 if RbConfig::MAKEFILE_CONFIG['CC'] =~ /gcc/
-  $CFLAGS << " -O3" unless $CFLAGS[/-O\d/]
-  $CFLAGS << " -Wall -Wcast-qual -Wwrite-strings -Wconversion -Wmissing-noreturn -Winline"
+  $CFLAGS << " -O3 -Wall -Wcast-qual -Wwrite-strings -Wconversion -Wmissing-noreturn -Winline"
 end
 
-if RbConfig::CONFIG['target_os'] =~ /mswin/
+if RbConfig::CONFIG['target_os'] =~ /mswin32/
   lib_prefix = 'lib'
 
   # There's no default include/lib dir on Windows. Let's just add the Ruby ones
@@ -99,17 +98,7 @@ def asplode(lib)
   abort "-----\n#{lib} is missing.  please visit http://nokogiri.org/tutorials/installing_nokogiri.html for help with installing dependencies.\n-----"
 end
 
-pkg_config('libxslt')
-pkg_config('libxml-2.0')
-pkg_config('libiconv')
-
-def have_iconv?
-  %w{ iconv_open libiconv_open }.any? do |method|
-    have_func(method, 'iconv.h') or
-      have_library('iconv', method, 'iconv.h') or
-      find_library('iconv', method, 'iconv.h')
-  end
-end
+pkg_config('libxslt') if RUBY_PLATFORM =~ /mingw/
 
 asplode "libxml2"  unless find_header('libxml/parser.h')
 asplode "libxslt"  unless find_header('libxslt/xslt.h')
