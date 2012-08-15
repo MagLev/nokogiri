@@ -1,7 +1,7 @@
 /**
  * (The MIT License)
  *
- * Copyright (c) 2008 - 2011:
+ * Copyright (c) 2008 - 2012:
  *
  * * {Aaron Patterson}[http://tenderlovemaking.com]
  * * {Mike Dalessio}[http://mike.daless.io]
@@ -67,6 +67,7 @@ import org.xml.sax.ext.EntityResolver2;
 public class ParserContext extends RubyObject {
     protected InputSource source = null;
     protected IRubyObject detected_encoding = null;
+    protected int stringDataSize = -1;
 
     /**
      * Create a file base input source taking into account the current
@@ -114,12 +115,17 @@ public class ParserContext extends RubyObject {
         }
 
         if (isAbsolutePath(path)) {
-            source = new InputSource();
-            if (detected_encoding != null) {
-                source.setEncoding((String) detected_encoding.toJava(String.class));
-            }
-            source.setSystemId(path);
+            returnWithSystemId(path);
             return;
+        }
+        // Dir.chdir might be called at some point before this.
+        String currentDir = context.getRuntime().getCurrentDirectory();
+        if (path != null && currentDir != null && currentDir.length() != 0) {
+            String absPath = currentDir + "/" + path;
+            if (isAbsolutePath(absPath)) {
+                returnWithSystemId(absPath);
+                return;
+            }
         }
         RubyString stringData = null;
         if (invoke(context, data, "respond_to?",
@@ -154,6 +160,7 @@ public class ParserContext extends RubyObject {
         }
         if (stringData != null) {
             ByteList bytes = stringData.getByteList();
+            stringDataSize = bytes.length() - bytes.begin();
             source = new InputSource(new ByteArrayInputStream(bytes.unsafeBytes(), bytes.begin(), bytes.length()));
         }
     }
@@ -161,6 +168,15 @@ public class ParserContext extends RubyObject {
     private boolean isAbsolutePath(String url) {
         if (url == null) return false;
         return (new File(url)).isAbsolute();
+    }
+    
+    private void returnWithSystemId(String url) {
+        source = new InputSource();
+        if (detected_encoding != null) {
+            source.setEncoding((String) detected_encoding.toJava(String.class));
+        }
+        source.setSystemId(url);
+        return;
     }
 
     /**

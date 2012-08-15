@@ -125,6 +125,13 @@ module Nokogiri
         @xml.root.parse('<hello>')
         assert(error_count < @xml.errors.length, "errors should have increased")
       end
+      
+      def test_parse_error_on_fragment_with_empty_document
+        doc = Document.new
+        fragment = DocumentFragment.new(doc, '<foo><bar/></foo>')
+        node = fragment%'bar'
+        node.parse('<baz><</baz>')
+      end
 
       def test_subclass_dup
         subclass = Class.new(Nokogiri::XML::Node)
@@ -206,6 +213,13 @@ module Nokogiri
       def test_append_with_document
         assert_raises(ArgumentError) do
           @xml.root << Nokogiri::XML::Document.new
+        end
+      end
+
+      def test_append_with_attr
+        r = Nokogiri.XML('<r a="1" />').root
+        assert_raises(ArgumentError) do
+          r << r.at_xpath('@a')
         end
       end
 
@@ -592,6 +606,19 @@ module Nokogiri
         assert_nil address['domestic']
       end
 
+      def test_attribute_setter_accepts_non_string
+        address = @xml.xpath("/staff/employee/address").first
+        assert_equal "Yes", address[:domestic]
+        address[:domestic] = "Altered Yes"
+        assert_equal "Altered Yes", address[:domestic]
+      end
+
+      def test_attribute_accessor_accepts_non_string
+        address = @xml.xpath("/staff/employee/address").first
+        assert_equal "Yes", address["domestic"]
+        assert_equal "Yes", address[:domestic]
+      end
+
       def test_delete
         address = @xml.xpath('/staff/employee/address').first
         assert_equal 'Yes', address['domestic']
@@ -807,6 +834,46 @@ module Nokogiri
         assert_equal 1, tires.length
       end
 
+      def test_namespaced_attribute_search_with_xpath
+        # from #593
+        xmlContent = <<-EOXML
+<?xml version="1.0"?>
+<ns1:el1 xmlns:ns1="http://blabla.com" >
+  <ns1:el2 ns1:att="123">with namespace</ns1:el2 >
+  <ns1:el2 att="noNameSpace">no namespace</ns1:el2 >
+</ns1:el1>
+EOXML
+        xml_doc = Nokogiri::XML(xmlContent)
+
+        no_ns = xml_doc.xpath("//*[@att]")
+        assert_equal no_ns.length, 1
+        assert_equal no_ns.first.content, "no namespace"
+
+        with_ns = xml_doc.xpath("//*[@ns1:att]")
+        assert_equal with_ns.length, 1
+        assert_equal with_ns.first.content, "with namespace"
+      end
+
+      def test_namespaced_attribute_search_with_css
+        # from #593
+        xmlContent = <<-EOXML
+<?xml version="1.0"?>
+<ns1:el1 xmlns:ns1="http://blabla.com" >
+  <ns1:el2 ns1:att="123">with namespace</ns1:el2 >
+  <ns1:el2 att="noNameSpace">no namespace</ns1:el2 >
+</ns1:el1>
+EOXML
+        xml_doc = Nokogiri::XML(xmlContent)
+
+        no_ns = xml_doc.css('*[att]')
+        assert_equal no_ns.length, 1
+        assert_equal no_ns.first.content, "no namespace"
+
+        with_ns = xml_doc.css('*[ns1|att]')
+        assert_equal with_ns.length, 1
+        assert_equal with_ns.first.content, "with namespace"
+      end
+
       def test_namespaces_should_include_all_namespace_definitions
         xml = Nokogiri::XML.parse(<<-EOF)
         <x xmlns="http://quux.com/" xmlns:a="http://foo.com/" xmlns:b="http://bar.com/">
@@ -854,7 +921,7 @@ module Nokogiri
             <b:div>hello b</b:div>
             <c:div>hello c</c:div>
             <div>hello moon</div>
-          </y>  
+          </y>
         </x>
         EOF
         set = xml.search("//y/*")
@@ -916,6 +983,15 @@ module Nokogiri
       def test_blank
         doc = Nokogiri::XML('')
         assert_equal false, doc.blank?
+      end
+
+      def test_to_xml_allows_to_serialize_with_as_xml_save_option
+        xml = Nokogiri::XML("<root><ul><li>Hello world</li></ul></root>")
+        set = xml.search("//ul")
+        node = set.first
+
+        assert_no_match("<ul>\n  <li>", xml.to_xml(:save_with => XML::Node::SaveOptions::AS_XML))
+        assert_no_match("<ul>\n  <li>", node.to_xml(:save_with => XML::Node::SaveOptions::AS_XML))
       end
     end
   end

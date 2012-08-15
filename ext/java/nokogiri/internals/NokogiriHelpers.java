@@ -1,7 +1,7 @@
 /**
  * (The MIT License)
  *
- * Copyright (c) 2008 - 2011:
+ * Copyright (c) 2008 - 2012:
  *
  * * {Aaron Patterson}[http://tenderlovemaking.com]
  * * {Mike Dalessio}[http://mike.daless.io]
@@ -35,10 +35,17 @@ package nokogiri.internals;
 import java.io.File;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CharsetEncoder;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import nokogiri.HtmlDocument;
 import nokogiri.NokogiriService;
 import nokogiri.XmlAttr;
 import nokogiri.XmlCdata;
@@ -57,6 +64,7 @@ import org.jruby.RubyArray;
 import org.jruby.RubyClass;
 import org.jruby.RubyEncoding;
 import org.jruby.RubyString;
+import org.jruby.runtime.ThreadContext;
 import org.jruby.runtime.builtin.IRubyObject;
 import org.jruby.util.ByteList;
 import org.w3c.dom.Attr;
@@ -74,6 +82,7 @@ import org.w3c.dom.NodeList;
 public class NokogiriHelpers {
     public static final String CACHED_NODE = "NOKOGIRI_CACHED_NODE";
     public static final String VALID_ROOT_NODE = "NOKOGIRI_VALIDE_ROOT_NODE";
+    public static final String ENCODED_STRING = "NOKOGIRI_ENCODED_STRING";
 
     public static XmlNode getCachedNode(Node node) {
         return (XmlNode) node.getUserData(CACHED_NODE);
@@ -89,12 +98,14 @@ public class NokogiriHelpers {
         if(node == null) return ruby.getNil();
         if (node.getNodeType() == Node.ATTRIBUTE_NODE && isNamespace(node.getNodeName())) {
             XmlDocument xmlDocument = (XmlDocument)node.getOwnerDocument().getUserData(CACHED_NODE);
+            if (!(xmlDocument instanceof HtmlDocument)) {
             String prefix = getLocalNameForNamespace(((Attr)node).getName());
             prefix = prefix != null ? prefix : "";
             String href = ((Attr)node).getValue();
             XmlNamespace xmlNamespace = xmlDocument.getNamespaceCache().get(prefix, href);
             if (xmlNamespace != null) return xmlNamespace;
             else return XmlNamespace.createFromAttr(ruby, (Attr)node);
+            }
         }
         XmlNode xmlNode = getCachedNode(node);
         if(xmlNode == null) {
@@ -145,7 +156,7 @@ public class NokogiriHelpers {
                 return xmlCdata;
             case Node.DOCUMENT_NODE:
                 XmlDocument xmlDocument = (XmlDocument) NokogiriService.XML_DOCUMENT_ALLOCATOR.allocate(runtime, getNokogiriClass(runtime, "Nokogiri::XML::Document"));
-                xmlDocument.setNode(runtime.getCurrentContext(), node);
+                xmlDocument.setDocumentNode(runtime.getCurrentContext(), node);
                 return xmlDocument;
             case Node.DOCUMENT_TYPE_NODE:
                 XmlDtd xmlDtd = (XmlDtd) NokogiriService.XML_DTD_ALLOCATOR.allocate(runtime, getNokogiriClass(runtime, "Nokogiri::XML::DTD"));
@@ -165,6 +176,11 @@ public class NokogiriHelpers {
     public static IRubyObject stringOrNil(Ruby runtime, String s) {
         if (s == null) return runtime.getNil();
         return RubyString.newString(runtime, s);
+    }
+    
+    public static IRubyObject stringOrNil(Ruby runtime, byte[] bytes) {
+        if (bytes == null) return runtime.getNil();
+        return RubyString.newString(runtime, bytes);
     }
     
     public static IRubyObject stringOrBlank(Ruby runtime, String s) {
@@ -262,6 +278,15 @@ public class NokogiriHelpers {
         int len = byteList.length();
         ByteBuffer buf = ByteBuffer.wrap(data, offset, len);
         return getCharsetUTF8().decode(buf).toString();
+    }
+    
+    public static List<String> rubyStringArrayToJavaList(RubyArray ary) {
+        List<String> list = new ArrayList<String>();
+        for (int i=0; i < ary.getLength(); i++) {
+            Object obj = ary.get(i);
+            if (obj != null) list.add(obj.toString());
+        }
+        return list;
     }
 
     public static String getNodeCompletePath(Node node) {
@@ -531,13 +556,6 @@ public class NokogiriHelpers {
         return convert(encoded_pattern, s, encoded, decoded);
     }
 
-    private static Pattern not_escaped_pattern = Pattern.compile("\\&(?!(amp;|gt;|lt;))|<|>");
-    public static boolean isNotXmlEscaped(String s) {
-        if (s == null) return false;
-        Matcher matcher = not_escaped_pattern.matcher(s);
-        return (matcher.find());
-    }
-
     public static String getNodeName(Node node) {
         if(node == null) { System.out.println("node is null"); return ""; }
         String name = node.getNodeName();
@@ -568,6 +586,38 @@ public class NokogiriHelpers {
 
     public static boolean isXmlBase(String attrName) {
         return "xml:base".equals(attrName) || "xlink:href".equals(attrName);
+    }
+    
+    public static boolean isWhitespaceText(ThreadContext context, IRubyObject obj) {
+        if (obj == null || obj.isNil()) return false;
+
+        XmlNode node = (XmlNode) obj;
+        if (!(node instanceof XmlText))
+            return false;
+
+        String content = rubyStringToString(node.content(context));
+        return content.trim().length() == 0;
+    }
+    
+    public static boolean isWhitespaceText(String s) {
+        return s.trim().length() == 0;
+    }
+    
+    public static String canonicalizeWhitespce(String s) {
+        StringBuilder sb = new StringBuilder();
+        char[] chars = s.toCharArray();
+        boolean newline_added = false;
+        for (int i=0; i<chars.length; i++) {
+            if (chars[i] == '\n') {
+                if (!newline_added) {
+                    sb.append(chars[i]);
+                    newline_added = true;
+                }
+            } else {
+                sb.append(chars[i]);
+            }
+        }
+        return sb.toString();
     }
 
     public static String newQName(String newPrefix, Node node) {
@@ -636,4 +686,27 @@ public class NokogiriHelpers {
         if (dtdFile.exists()) return dtdFile.getPath();
         return null;
     }
+    
+    public static boolean isUTF8(String encoding) {
+        if (encoding == null) return true;   // no need to convert encoding
+        int ret = Charset.forName(encoding).compareTo(Charset.forName("UTF-8"));
+        return ret == 0;
+    }
+    
+    public static byte[] convertEncoding(Charset output_charset, String input_string) throws CharacterCodingException {
+        Charset input = Charset.forName("UTF-8");
+        CharsetDecoder decoder = input.newDecoder();
+        CharsetEncoder encoder = output_charset.newEncoder();
+        decoder.reset();
+        encoder.reset();
+        ByteBuffer bbuf = ByteBuffer.wrap(input_string.getBytes());
+        CharBuffer cbuf = decoder.decode(bbuf);
+        bbuf.clear();
+        encoder.encode(cbuf, bbuf, true);
+        int length = bbuf.position();
+        byte[] bytes = new byte[length];
+        System.arraycopy(bbuf.array(), 0, bytes, 0, length);
+        return bytes;
+    }
+    
 }

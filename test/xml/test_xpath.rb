@@ -58,6 +58,10 @@ module Nokogiri
           def saves_node_set node_set
             @things = node_set
           end
+
+          def value
+            123.456
+          end
         }.new
       end
 
@@ -128,6 +132,15 @@ module Nokogiri
         end
         assert_equal(set.length, @handler.things.length)
         assert_equal(['asdf'] * set.length, @handler.things)
+      end
+
+      def test_custom_xpath_function_returns_string
+        if Nokogiri.uses_libxml?
+          result = @xml.xpath('thing("asdf")', @handler)
+        else
+          result = @xml.xpath('nokogiri:thing("asdf")', @ns, @handler)
+        end
+        assert_equal 'asdf', result
       end
 
       def test_custom_xpath_gets_true_booleans
@@ -231,6 +244,15 @@ module Nokogiri
         xpath = xpath.join(',')
 
         assert_equal doc.xpath("//tool[@name='hammer']"), doc.xpath(xpath, tool_inspector)
+      end
+
+      def test_custom_xpath_without_arguments
+        if Nokogiri.uses_libxml?
+          value = @xml.xpath('value()', @handler)
+        else
+          value = @xml.xpath('nokogiri:value()', @ns, @handler)
+        end
+        assert_equal 123.456, value
       end
     end
   end

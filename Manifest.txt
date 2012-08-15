@@ -72,6 +72,8 @@ ext/nokogiri/html_entity_lookup.c
 ext/nokogiri/html_entity_lookup.h
 ext/nokogiri/html_sax_parser_context.c
 ext/nokogiri/html_sax_parser_context.h
+ext/nokogiri/html_sax_push_parser.c
+ext/nokogiri/html_sax_push_parser.h
 ext/nokogiri/nokogiri.c
 ext/nokogiri/nokogiri.h
 ext/nokogiri/xml_attr.c
@@ -154,6 +156,7 @@ lib/nokogiri/html/element_description_defaults.rb
 lib/nokogiri/html/entity_lookup.rb
 lib/nokogiri/html/sax/parser.rb
 lib/nokogiri/html/sax/parser_context.rb
+lib/nokogiri/html/sax/push_parser.rb
 lib/nokogiri/syntax_error.rb
 lib/nokogiri/version.rb
 lib/nokogiri/xml.rb
@@ -270,6 +273,7 @@ test/xml/test_node_attributes.rb
 test/xml/test_node_encoding.rb
 test/xml/test_node_reparenting.rb
 test/xml/test_node_set.rb
+test/xml/test_node_inheritance.rb
 test/xml/test_parse_options.rb
 test/xml/test_processing_instruction.rb
 test/xml/test_reader_encoding.rb

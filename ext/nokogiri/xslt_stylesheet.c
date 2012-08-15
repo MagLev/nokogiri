@@ -10,27 +10,49 @@ VALUE xslt;
 int vasprintf (char **strp, const char *fmt, va_list ap);
 void vasprintf_free (void *p);
 
-static void dealloc(xsltStylesheetPtr doc)
+static void mark(nokogiriXsltStylesheetTuple *wrapper)
 {
+  rb_gc_mark(wrapper->func_instances);
+}
+
+static void dealloc(nokogiriXsltStylesheetTuple *wrapper)
+{
+    xsltStylesheetPtr doc = wrapper->ss;
+
     NOKOGIRI_DEBUG_START(doc);
     xsltFreeStylesheet(doc); /* commented out for now. */
     NOKOGIRI_DEBUG_END(doc);
+    
+    free(wrapper);
 }
 
-NORETURN(static void xslt_generic_error_handler(void * ctx, const char *msg, ...));
 static void xslt_generic_error_handler(void * ctx, const char *msg, ...)
 {
   char * message;
-  VALUE exception;
 
   va_list args;
   va_start(args, msg);
   vasprintf(&message, msg, args);
   va_end(args);
 
-  exception = rb_exc_new2(rb_eRuntimeError, message);
+  rb_str_cat2((VALUE)ctx, message);
+
   vasprintf_free(message);
-  rb_exc_raise(exception);
+}
+
+VALUE Nokogiri_wrap_xslt_stylesheet(xsltStylesheetPtr ss)
+{
+  VALUE self;
+  nokogiriXsltStylesheetTuple *wrapper;
+
+  self = Data_Make_Struct(cNokogiriXsltStylesheet, nokogiriXsltStylesheetTuple,
+                          mark, dealloc, wrapper);
+  
+  ss->_private = (void *)self;
+  wrapper->ss = ss;
+  wrapper->func_instances = rb_ary_new();
+
+  return self;
 }
 
 /*
@@ -41,18 +63,27 @@ static void xslt_generic_error_handler(void * ctx, const char *msg, ...)
  */
 static VALUE parse_stylesheet_doc(VALUE klass, VALUE xmldocobj)
 {
-    xmlDocPtr xml ;
+    xmlDocPtr xml, xml_cpy;
+    VALUE errstr, exception;
     xsltStylesheetPtr ss ;
     Data_Get_Struct(xmldocobj, xmlDoc, xml);
     exsltRegisterAll();
 
-    xsltSetGenericErrorFunc(NULL, xslt_generic_error_handler);
+    errstr = rb_str_new(0, 0);
+    xsltSetGenericErrorFunc((void *)errstr, xslt_generic_error_handler);
 
-    ss = xsltParseStylesheetDoc(xmlCopyDoc(xml, 1)); /* 1 => recursive */
+    xml_cpy = xmlCopyDoc(xml, 1); /* 1 => recursive */
+    ss = xsltParseStylesheetDoc(xml_cpy);
 
     xsltSetGenericErrorFunc(NULL, NULL);
 
-    return Data_Wrap_Struct(klass, NULL, dealloc, ss);
+    if (!ss) {
+	xmlFreeDoc(xml_cpy);
+	exception = rb_exc_new3(rb_eRuntimeError, errstr);
+	rb_exc_raise(exception);
+    }
+
+    return Nokogiri_wrap_xslt_stylesheet(ss);
 }
 
 
@@ -65,14 +96,14 @@ static VALUE parse_stylesheet_doc(VALUE klass, VALUE xmldocobj)
 static VALUE serialize(VALUE self, VALUE xmlobj)
 {
     xmlDocPtr xml ;
-    xsltStylesheetPtr ss ;
+    nokogiriXsltStylesheetTuple *wrapper;
     xmlChar* doc_ptr ;
     int doc_len ;
     VALUE rval ;
 
     Data_Get_Struct(xmlobj, xmlDoc, xml);
-    Data_Get_Struct(self, xsltStylesheet, ss);
-    xsltSaveResultToString(&doc_ptr, &doc_len, xml, ss);
+    Data_Get_Struct(self, nokogiriXsltStylesheetTuple, wrapper);
+    xsltSaveResultToString(&doc_ptr, &doc_len, xml, wrapper->ss);
     rval = NOKOGIRI_STR_NEW(doc_ptr, doc_len);
     xmlFree(doc_ptr);
     return rval ;
@@ -98,7 +129,7 @@ static VALUE transform(int argc, VALUE* argv, VALUE self)
     VALUE xmldoc, paramobj ;
     xmlDocPtr xml ;
     xmlDocPtr result ;
-    xsltStylesheetPtr ss ;
+    nokogiriXsltStylesheetTuple *wrapper;
     const char** params ;
     long param_len, j ;
 
@@ -116,7 +147,7 @@ static VALUE transform(int argc, VALUE* argv, VALUE self)
     Check_Type(paramobj, T_ARRAY);
 
     Data_Get_Struct(xmldoc, xmlDoc, xml);
-    Data_Get_Struct(self, xsltStylesheet, ss);
+    Data_Get_Struct(self, nokogiriXsltStylesheetTuple, wrapper);
 
     param_len = RARRAY_LEN(paramobj);
     params = calloc((size_t)param_len+1, sizeof(char*));
@@ -127,7 +158,7 @@ static VALUE transform(int argc, VALUE* argv, VALUE self)
     }
     params[param_len] = 0 ;
 
-    result = xsltApplyStylesheet(ss, xml, params);
+    result = xsltApplyStylesheet(wrapper->ss, xml, params);
     free(params);
 
     if (!result) rb_raise(rb_eRuntimeError, "could not perform xslt transform on document");
@@ -178,8 +209,10 @@ static void method_caller(xmlXPathParserContextPtr ctxt, int nargs)
 		rb_raise(rb_eRuntimeError, "do not handle type: %d", xpath->type);
 	}
 	args[i] = thing;
+	xmlFree(xpath);
     }
     result = rb_funcall3(obj, rb_intern((const char *)function), (int)count, args);
+    free(args);
     switch(TYPE(result)) {
 	case T_FLOAT:
 	case T_BIGNUM:
@@ -211,6 +244,8 @@ static void * initFunc(xsltTransformContextPtr ctxt, const xmlChar *uri)
     VALUE obj = rb_hash_aref(modules, rb_str_new2((const char *)uri));
     VALUE args = { Qfalse };
     VALUE methods = rb_funcall(obj, rb_intern("instance_methods"), 1, args);
+    VALUE inst;
+    nokogiriXsltStylesheetTuple *wrapper;
     int i;
 
     for(i = 0; i < RARRAY_LEN(methods); i++) {
@@ -220,12 +255,23 @@ static void * initFunc(xsltTransformContextPtr ctxt, const xmlChar *uri)
           (unsigned char *)StringValuePtr(method_name), uri, method_caller);
     }
 
-    return (void *)rb_class_new_instance(0, NULL, obj);
+    Data_Get_Struct(ctxt->style->_private, nokogiriXsltStylesheetTuple,
+                    wrapper);
+    inst = rb_class_new_instance(0, NULL, obj);
+    rb_ary_push(wrapper->func_instances, inst);
+
+    return (void *)inst;
 }
 
 static void shutdownFunc(xsltTransformContextPtr ctxt,
 	const xmlChar *uri, void *data)
 {
+    nokogiriXsltStylesheetTuple *wrapper;
+
+    Data_Get_Struct(ctxt->style->_private, nokogiriXsltStylesheetTuple,
+                    wrapper);
+
+    rb_ary_clear(wrapper->func_instances);
 }
 
 /*
