@@ -448,6 +448,7 @@ public class XmlNode extends RubyObject {
     public void relink_namespace(ThreadContext context) {
         if (node instanceof Element) {
             Element e = (Element) node;
+            e.getOwnerDocument().setStrictErrorChecking(false);
             e.getOwnerDocument().renameNode(e, e.lookupNamespaceURI(e.getPrefix()), e.getNodeName());
 
             if (e.hasAttributes()) {
@@ -464,6 +465,9 @@ public class XmlNode extends RubyObject {
                         nsUri = "http://www.w3.org/2000/xmlns/";
                     } else {
                         nsUri = attr.getNamespaceURI();
+                    }
+                    if (!(nsUri == null || "".equals(nsUri))) {
+                        XmlNamespace.createFromAttr(context.getRuntime(), attr);
                     }
                     e.getOwnerDocument().renameNode(attr, nsUri, nodeName);
                 }
@@ -547,7 +551,7 @@ public class XmlNode extends RubyObject {
             str = NokogiriHelpers.getLocalPart(str);
         }
         if (str == null) str = "";
-        name = context.getRuntime().newString(str);
+        name = NokogiriHelpers.stringOrBlank(context.getRuntime(), str);
         return name;
     }
 
@@ -812,7 +816,7 @@ public class XmlNode extends RubyObject {
             if (node == null) {
                 textContent = "";
             } else {
-                textContent = ((Document)this.node).getDocumentElement().getTextContent().trim();
+                textContent = ((Document)this.node).getDocumentElement().getTextContent();
             }
         } else {
             textContent = this.node.getTextContent();

@@ -1,4 +1,4 @@
-= Nokogiri {<img src="https://secure.travis-ci.org/sparklemotion/nokogiri.png?rvm=1.9.3" />}[http://travis-ci.org/sparklemotion/nokogiri]
+= Nokogiri {<img src="https://secure.travis-ci.org/sparklemotion/nokogiri.png?rvm=1.9.3" />}[http://travis-ci.org/sparklemotion/nokogiri] {<img src="https://codeclimate.com/badge.png" />}[https://codeclimate.com/github/sparklemotion/nokogiri]
 
 * http://nokogiri.org
 * http://github.com/sparklemotion/nokogiri/wikis
@@ -151,7 +151,7 @@ Then run rake:
 
 Copyright (c) 2008 - 2012:
 
-* {Aaron Patterson}[http://sparklemotionmaking.com]
+* {Aaron Patterson}[http://tenderlovemaking.com]
 * {Mike Dalessio}[http://mike.daless.io]
 * {Charles Nutter}[http://blog.headius.com]
 * {Sergio Arbeo}[http://www.serabe.com]
