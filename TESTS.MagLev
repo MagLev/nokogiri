@@ -1,0 +1,32 @@
+/home/tim/.rbenv/versions/maglev/bin/maglev-ruby -w -I.:lib:bin:test:. -e 'require "rubygems"; require "minitest/autorun";
+
+require "test/test_convert_xpath.rb"; require "test/test_css_cache.rb"; require "test/test_encoding_handler.rb"; require "test/test_soap4r_sax.rb"; require "test/test_memory_leak.rb";
+require "test/test_nokogiri.rb"; require "test/test_reader.rb"; require "test/test_xslt_transforms.rb"; require "test/css/test_nthiness.rb"; require "test/css/test_tokenizer.rb";
+require "test/css/test_xpath_visitor.rb"; require "test/css/test_parser.rb"; require "test/decorators/test_slop.rb";
+require "test/html/test_named_characters.rb"; require "test/html/test_node_encoding.rb"; require "test/html/test_document_fragment.rb";
+require "test/html/test_element_description.rb"; require "test/html/test_node.rb";
+require "test/xml/test_attribute_decl.rb";
+require "test/xml/test_comment.rb"; require "test/xml/test_dtd_encoding.rb"; require "test/xml/test_element_content.rb"; require "test/xml/test_element_decl.rb";
+require "test/xml/test_entity_decl.rb"; require "test/xml/test_node_encoding.rb"; require "test/xml/test_processing_instruction.rb"; require "test/xml/test_relax_ng.rb";
+require "test/xml/test_schema.rb"; require "test/xml/test_syntax_error.rb"; require "test/xml/test_c14n.rb"; require "test/xml/test_node_inheritance.rb";
+require "test/xml/test_reader_encoding.rb"; require "test/xml/test_attr.rb"; require "test/xml/test_builder.rb"; require "test/xml/test_cdata.rb";
+require "test/xml/test_document.rb"; require "test/xml/test_document_encoding.rb"; require "test/xml/test_dtd.rb";
+require "test/xml/test_parse_options.rb"; require "test/xml/test_text.rb";
+require "test/xml/test_entity_reference.rb"; require "test/xml/test_namespace.rb";
+require "test/xml/test_unparented_node.rb"; 
+require "test/xml/node/test_save_options.rb"; require "test/xml/node/test_subclass.rb"; require "test/xml/sax/test_parser.rb"; require "test/xml/sax/test_parser_context.rb";
+require "test/xml/sax/test_push_parser.rb"; require "test/html/sax/test_parser.rb"; require "test/html/sax/test_parser_context.rb";
+require "test/xslt/test_exception_handling.rb";
+require "test/xml/test_node.rb";
+
+
+2 ERRORS: require "test/html/test_document_encoding.rb";
+1 ERROR: require "test/html/test_builder.rb";
+1 ERROR, 1 SEGFAULT: require "test/html/test_document.rb";
+1 FAILURE: require "test/xml/test_xinclude.rb";
+1 SEGFAULT: require "test/xml/test_document_fragment.rb";
+3 FAILURES: require "test/xml/test_node_reparenting.rb";
+1 SEGFAULT: require "test/xml/test_node_set.rb";
+1 SEGFAULT: require "test/xml/test_xpath.rb";
+1 SEGFAULT: require "test/xslt/test_custom_functions.rb";
+1 FAILURES: require "test/xml/test_node_attributes.rb";
