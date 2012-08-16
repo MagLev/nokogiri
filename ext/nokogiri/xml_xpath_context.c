@@ -62,7 +62,7 @@ void Nokogiri_marshal_xpath_funcall_and_return_values(xmlXPathParserContextPtr c
   assert(ctx->context->doc);
   assert(DOC_RUBY_OBJECT_TEST(ctx->context->doc));
 
-  // argv = (VALUE *)calloc((size_t)nargs, sizeof(VALUE));
+  argv = (VALUE *)calloc((size_t)nargs, sizeof(VALUE));
   // for (i = 0 ; i < nargs ; ++i) {
   //   rb_gc_register_address(&argv[i]);
   // }
@@ -75,19 +75,19 @@ void Nokogiri_marshal_xpath_funcall_and_return_values(xmlXPathParserContextPtr c
       obj = valuePop(ctx);
       switch(obj->type) {
         case XPATH_STRING:
-          rb_ary_store(argv, i, NOKOGIRI_STR_NEW2(obj->stringval));
+          argv[i] = NOKOGIRI_STR_NEW2(obj->stringval);
           break;
         case XPATH_BOOLEAN:
-          rb_ary_store(argv, i, obj->boolval == 1 ? Qtrue : Qfalse);
+          argv[i] = obj->boolval == 1 ? Qtrue : Qfalse;
           break;
         case XPATH_NUMBER:
-          rb_ary_store(argv, i, rb_float_new(obj->floatval));
+          argv[i] = rb_float_new(obj->floatval);
           break;
         case XPATH_NODESET:
-          rb_ary_store(argv, i, Nokogiri_wrap_xml_node_set(obj->nodesetval, doc));
+          argv[i] = Nokogiri_wrap_xml_node_set(obj->nodesetval, doc);
           break;
         default:
-          rb_ary_store(argv, i, NOKOGIRI_STR_NEW2(xmlXPathCastToString(obj)));
+          argv[i] = NOKOGIRI_STR_NEW2(xmlXPathCastToString(obj));
       }
       xmlXPathFreeNodeSetList(obj);
     } while(i-- > 0);
@@ -98,7 +98,7 @@ void Nokogiri_marshal_xpath_funcall_and_return_values(xmlXPathParserContextPtr c
   // for (i = 0 ; i < nargs ; ++i) {
   //  rb_gc_unregister_address(&argv[i]);
   //}
-  //free(argv);
+  free(argv);
 
   MagRubyType tp = TYPE(result) ;   // maglev debugging
   switch(tp) {
