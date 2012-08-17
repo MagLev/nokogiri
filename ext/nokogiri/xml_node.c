@@ -1386,8 +1386,8 @@ VALUE Nokogiri_wrap_xml_node(VALUE klass, xmlNodePtr node)
 
   mark_method = node_has_a_document ? mark : NULL ;
 
-  if (DOC_RUBY_OBJECT_TEST(node->doc)) {  // maglev workaround , no gc mark
-    VALUE ref = DOC_RUBY_OBJECT(node->doc);
+  if (DOC_RUBY_OBJECT_TEST(doc)) {  // maglev workaround , no gc mark
+    VALUE ref = DOC_RUBY_OBJECT(doc);
     if (ref != 0 && ref != Qnil && sym_iv_doc != Qnil) {
       rb_node = Data_Wrap_Struct(klass, NULL, debug_node_dealloc, node) ;
       rb_ivar_set(rb_node, sym_iv_doc, ref);
