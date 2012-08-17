@@ -22,12 +22,19 @@ require "test/xslt/test_custom_functions.rb";
 require "test/xml/test_document_fragment.rb";
 require "test/xml/test_node_set.rb";
 require "test/xml/test_xpath.rb";
-
+------
 1 FAILURE: require "test/xml/test_xinclude.rb";
 1 FAILURES: require "test/xml/test_node_attributes.rb";
 3 FAILURES: require "test/xml/test_node_reparenting.rb";
+------
+RuntimeError: Document already has a root node
+nokogiri/lib/nokogiri/xml/document.rb:230:in `add_child'
+
+1 ERROR: require "test/html/test_builder.rb";
+------
+UncontinuableError: a UncontinuableError occurred (error 6011),
+Execution cannot be continued, 'Exception has already been signaled'
+nokogiri/lib/nokogiri/html/document.rb:112:in `parse'
 
 2 ERRORS: require "test/html/test_document_encoding.rb";
-1 ERROR: require "test/html/test_builder.rb";
 2 ERRORS: require "test/html/test_document.rb";
-
