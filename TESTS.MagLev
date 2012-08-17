@@ -18,7 +18,7 @@ require "test/xml/node/test_save_options.rb"; require "test/xml/node/test_subcla
 require "test/xml/sax/test_push_parser.rb"; require "test/html/sax/test_parser.rb"; require "test/html/sax/test_parser_context.rb";
 require "test/xslt/test_exception_handling.rb";
 require "test/xml/test_node.rb";
-
+require "test/xslt/test_custom_functions.rb";
 
 1 FAILURE: require "test/xml/test_xinclude.rb";
 1 FAILURES: require "test/xml/test_node_attributes.rb";
@@ -33,4 +33,3 @@ require "test/xml/test_node.rb";
 1 SEGFAULT: require "test/xml/test_document_fragment.rb";
 1 SEGFAULT: require "test/xml/test_node_set.rb";
 1 SEGFAULT: require "test/xml/test_xpath.rb";
-1 SEGFAULT: require "test/xslt/test_custom_functions.rb";
