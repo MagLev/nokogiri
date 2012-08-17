@@ -20,6 +20,8 @@ require "test/xslt/test_exception_handling.rb";
 require "test/xml/test_node.rb";
 require "test/xslt/test_custom_functions.rb";
 require "test/xml/test_document_fragment.rb";
+require "test/xml/test_node_set.rb";
+require "test/xml/test_xpath.rb";
 
 1 FAILURE: require "test/xml/test_xinclude.rb";
 1 FAILURES: require "test/xml/test_node_attributes.rb";
@@ -29,5 +31,3 @@ require "test/xml/test_document_fragment.rb";
 1 ERROR: require "test/html/test_builder.rb";
 2 ERRORS: require "test/html/test_document.rb";
 
-1 SEGFAULT: require "test/xml/test_node_set.rb";
-1 SEGFAULT: require "test/xml/test_xpath.rb";
